@@ -65,18 +65,16 @@ jobs:
               run: pnpm build
 
             - name: Deploy to Staging
-              id: staging
-              run: |
-                  DEPLOY_URL=$(npx wrangler pages deploy dist --project-name jaw-finance --branch staging 2>&1 | grep -oE 'https://[^ ]+\.pages\.dev')
-                  echo "url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
+              run: npx wrangler pages deploy dist --project-name jaw-finance --branch staging
 
             - name: Install Playwright browsers
               run: pnpm exec playwright install --with-deps chromium
 
             - name: Run E2E tests against Staging
               run: pnpm exec playwright test
-              env:
-                  BASE_URL: ${{ steps.staging.outputs.url }}
+
+            - name: Deploy to Production
+              run: npx wrangler pages deploy dist --project-name jaw-finance --branch main
 
             - name: Deploy to Production
               run: npx wrangler pages deploy dist --project-name jaw-finance --branch main
