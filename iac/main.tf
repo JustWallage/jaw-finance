@@ -49,6 +49,13 @@ resource "cloudflare_pages_project" "jaw_finance" {
   account_id        = var.cloudflare_account_id
   name              = "jaw-finance"
   production_branch = "main"
+
+  # Workaround for Cloudflare Provider v5 PATCH bug
+  lifecycle {
+    ignore_changes = [
+      production_branch
+    ]
+  }
 }
 
 # --- Cloudflare Pages Custom Domain ---
