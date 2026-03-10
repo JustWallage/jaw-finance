@@ -52,9 +52,7 @@ resource "cloudflare_pages_project" "jaw_finance" {
 
   # Workaround for Cloudflare Provider v5 PATCH bug
   lifecycle {
-    ignore_changes = [
-      production_branch
-    ]
+    ignore_changes = all
   }
 }
 
