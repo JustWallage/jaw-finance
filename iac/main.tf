@@ -51,6 +51,14 @@ resource "cloudflare_pages_project" "jaw_finance" {
   production_branch = "main"
 }
 
+# --- Cloudflare Pages Custom Domain ---
+# This tells Cloudflare to accept traffic from your AWS Route53 domain
+resource "cloudflare_pages_domain" "jaw_finance_domain" {
+  account_id   = var.cloudflare_account_id
+  project_name = cloudflare_pages_project.jaw_finance.name
+  name         = "finance.just.wallage.nl"
+}
+
 # --- Cloudflare Access: Zero Trust ---
 
 # Access Application – protects finance.just.wallage.nl
@@ -63,6 +71,9 @@ resource "cloudflare_zero_trust_access_application" "jaw_finance" {
   auto_redirect_to_identity = false
   app_launcher_visible      = true
 
+  # We strictly depend on the domain being registered in Pages first
+  depends_on = [cloudflare_pages_domain.jaw_finance_domain]
+
   policies = [{
     name     = "Allow email OTP"
     decision = "allow"
@@ -72,12 +83,4 @@ resource "cloudflare_zero_trust_access_application" "jaw_finance" {
       }
     }]
   }]
-}
-
-# Access Identity Provider – One-Time Pin
-resource "cloudflare_zero_trust_access_identity_provider" "otp" {
-  account_id = var.cloudflare_account_id
-  name       = "One-Time Pin"
-  type       = "onetimepin"
-  config     = {}
 }
