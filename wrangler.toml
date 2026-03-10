@@ -1,0 +1,3 @@
+name = "jaw-finance"
+pages_build_output_dir = "./dist"
+compatibility_date = "2025-12-01"

@@ -1,0 +1,23 @@
+bunq
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Terraform
+iac/.terraform/
+iac/*.tfstate*
+iac/.terraform.lock.hcl
+
+# Playwright
+test-results/
+playwright-report/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
