@@ -68,11 +68,17 @@ resource "cloudflare_pages_domain" "jaw_finance_domain" {
 resource "cloudflare_d1_database" "jaw_finance_staging" {
   account_id = var.cloudflare_account_id
   name       = "jaw-finance-staging"
+  read_replication = {
+    mode = "disabled"
+  }
 }
 
 resource "cloudflare_d1_database" "jaw_finance_prod" {
   account_id = var.cloudflare_account_id
   name       = "jaw-finance-prod"
+  read_replication = {
+    mode = "disabled"
+  }
 }
 
 output "d1_database_id_staging" {
