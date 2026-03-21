@@ -11,7 +11,7 @@ Task one: you must keep this document up to date, but only with the broad contex
 ## Tech Stack
 * **Project Name:** `jaw-finance`
 * **Monorepo:** React UI in `/src`, API in `/functions`, IaC in `/iac`, Tests in `/tests`.
-* **Frontend:** React, Vite, Tailwind CSS.
+* **Frontend:** React, Vite, Tailwind CSS, Shadcn UI (must download components, not create them manually).
 * **Backend:** Cloudflare Pages Functions.
 * **Database:** Cloudflare D1 (Two separate instances: Staging and Production), provisioned via Terraform.
   * Database bindings are dynamically templated into `wrangler.toml` during the CI pipeline using Terraform outputs (`wrangler.toml.template` → `wrangler.toml`).
