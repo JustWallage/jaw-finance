@@ -1,4 +1,9 @@
 bunq
+bunq.conf
+
+# Python
+.venv/
+__pycache__/
 
 # Dependencies
 node_modules/

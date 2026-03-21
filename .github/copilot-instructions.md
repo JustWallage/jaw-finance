@@ -1,5 +1,7 @@
 # Project Context: jaw-finance Dashboard
 
+Task one: you must keep this document up to date, but only with the broad context of the project. Do not include specific implementation details. Only when significant changes/additions to the project context/stack occur, you must update this document.
+
 ## Core Principles
 1. **Production-Level Standards:** No hacks, no shortcuts. Built as an active company would build it.
 2. **Simplicity:** Minimize dependencies, code, and steps. Do not reinvent the wheel.
