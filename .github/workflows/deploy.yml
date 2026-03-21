@@ -61,8 +61,27 @@ jobs:
                   TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
               run: terraform apply -auto-approve
 
+            - name: Read Terraform Outputs
+              working-directory: iac
+              env:
+                  AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
+                  AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+              run: |
+                  echo "STAGING_DB_ID=$(terraform output -raw d1_database_id_staging)" >> "$GITHUB_ENV"
+                  echo "PROD_DB_ID=$(terraform output -raw d1_database_id_prod)" >> "$GITHUB_ENV"
+
+            - name: Generate wrangler.toml
+              run: |
+                  sed \
+                    -e "s/STAGING_DB_ID/$STAGING_DB_ID/g" \
+                    -e "s/PROD_DB_ID/$PROD_DB_ID/g" \
+                    wrangler.toml.template > wrangler.toml
+
             - name: Build
               run: pnpm build
+
+            - name: Run Staging DB Migrations
+              run: npx wrangler d1 migrations apply DB --env staging
 
             - name: Deploy to Staging
               run: npx wrangler pages deploy dist --project-name jaw-finance --branch staging
@@ -73,8 +92,8 @@ jobs:
             - name: Run E2E tests against Staging
               run: pnpm exec playwright test
 
-            - name: Deploy to Production
-              run: npx wrangler pages deploy dist --project-name jaw-finance --branch main
+            - name: Run Production DB Migrations
+              run: npx wrangler d1 migrations apply DB --env production
 
             - name: Deploy to Production
               run: npx wrangler pages deploy dist --project-name jaw-finance --branch main

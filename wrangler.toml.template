@@ -1,0 +1,15 @@
+name = "jaw-finance"
+pages_build_output_dir = "./dist"
+compatibility_date = "2025-12-01"
+
+[env.staging]
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "jaw-finance-staging"
+database_id = "STAGING_DB_ID"
+
+[env.production]
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "jaw-finance-prod"
+database_id = "PROD_DB_ID"

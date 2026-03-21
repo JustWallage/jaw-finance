@@ -64,6 +64,25 @@ resource "cloudflare_pages_domain" "jaw_finance_domain" {
   name         = "finance.just.wallage.nl"
 }
 
+# --- Cloudflare D1 Databases ---
+resource "cloudflare_d1_database" "jaw_finance_staging" {
+  account_id = var.cloudflare_account_id
+  name       = "jaw-finance-staging"
+}
+
+resource "cloudflare_d1_database" "jaw_finance_prod" {
+  account_id = var.cloudflare_account_id
+  name       = "jaw-finance-prod"
+}
+
+output "d1_database_id_staging" {
+  value = cloudflare_d1_database.jaw_finance_staging.id
+}
+
+output "d1_database_id_prod" {
+  value = cloudflare_d1_database.jaw_finance_prod.id
+}
+
 # --- Cloudflare Access: Zero Trust ---
 
 # Access Application – protects finance.just.wallage.nl

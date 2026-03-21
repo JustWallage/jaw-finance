@@ -13,7 +13,9 @@ Task one: you must keep this document up to date, but only with the broad contex
 * **Monorepo:** React UI in `/src`, API in `/functions`, IaC in `/iac`, Tests in `/tests`.
 * **Frontend:** React, Vite, Tailwind CSS.
 * **Backend:** Cloudflare Pages Functions.
-* **Database:** Cloudflare D1 (Two separate instances: Staging and Production).
+* **Database:** Cloudflare D1 (Two separate instances: Staging and Production), provisioned via Terraform.
+  * Database bindings are dynamically templated into `wrangler.toml` during the CI pipeline using Terraform outputs (`wrangler.toml.template` → `wrangler.toml`).
+  * D1 Migrations (in `/migrations`) are automatically applied in the CI pipeline before each environment's code deployment.
 * **Package Manager:** pnpm.
 * **CI/CD:** GitHub Actions.
 * **E2E Testing:** Playwright.
@@ -26,8 +28,8 @@ Task one: you must keep this document up to date, but only with the broad contex
 * **bunq Webhooks (Future Phase):** Handled via `/functions/api/webhooks/bunq`. Protected via Cloudflare Access bypass rule, but strictly verified using cryptographic signatures (`X-Bunq-Server-Signature`).
 * **Secrets:** Injected via GitHub Actions environment variables and Wrangler during deployment.
 
-## Data Management (Future Phases)
-* **Database Migrations:** Expand and Contract pattern. Migrations must strictly happen *before* code deployments in the pipeline.
+## Data Management
+* **Database Migrations:** Expand and Contract pattern. Migrations are in `/migrations` and run automatically before each environment's code deployment in the CI pipeline.
 * **Data Backfill:** Handled via Cloudflare Workflows, deployed via Wrangler. Designed to be durable, retryable, and completely idempotent using database-level `UNIQUE` constraints on the bunq transaction IDs.
 
 YOU MUST END ALL RESPONSES WITH EXECUTING THE FOLLOWING COMMAND:
