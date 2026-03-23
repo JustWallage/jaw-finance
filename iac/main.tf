@@ -33,59 +33,6 @@ resource "cloudflare_pages_project" "jaw_finance" {
   name              = "jaw-finance"
   production_branch = "main"
 
-  deployment_configs = {
-    preview = {
-      d1_databases = {
-        DB = {
-          id = cloudflare_d1_database.jaw_finance_staging.id
-        }
-      }
-      env_vars = {
-        BUNQ_API_KEY_SANDBOX = {
-          type  = "secret_text"
-          value = var.bunq_api_key_sandbox
-        }
-        BUNQ_PRIVATE_KEY_SANDBOX = {
-          type  = "secret_text"
-          value = var.bunq_private_key_sandbox
-        }
-        BUNQ_INSTALLATION_TOKEN_SANDBOX = {
-          type  = "secret_text"
-          value = var.bunq_installation_token_sandbox
-        }
-        BUNQ_SERVER_PUBLIC_KEY_SANDBOX = {
-          type  = "secret_text"
-          value = var.bunq_server_public_key_sandbox
-        }
-      }
-    }
-    production = {
-      d1_databases = {
-        DB = {
-          id = cloudflare_d1_database.jaw_finance_prod.id
-        }
-      }
-      env_vars = {
-        BUNQ_API_KEY_SANDBOX = {
-          type  = "secret_text"
-          value = var.bunq_api_key_sandbox
-        }
-        BUNQ_PRIVATE_KEY_SANDBOX = {
-          type  = "secret_text"
-          value = var.bunq_private_key_sandbox
-        }
-        BUNQ_INSTALLATION_TOKEN_SANDBOX = {
-          type  = "secret_text"
-          value = var.bunq_installation_token_sandbox
-        }
-        BUNQ_SERVER_PUBLIC_KEY_SANDBOX = {
-          type  = "secret_text"
-          value = var.bunq_server_public_key_sandbox
-        }
-      }
-    }
-  }
-
   # wrangler pages deploy may update wrangler_config_hash and other
   # deployment-level fields; let Terraform ignore that drift.
   lifecycle {

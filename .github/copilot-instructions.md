@@ -26,7 +26,7 @@ Task one: you must keep this document up to date, but only with the broad contex
 ## Security & Integrations
 * **Authentication:** Cloudflare Access (Zero Trust) protects the application UI.
 * **bunq Webhooks (Future Phase):** Handled via `/functions/api/webhooks/bunq`. Protected via Cloudflare Access bypass rule, but strictly verified using cryptographic signatures (`X-Bunq-Server-Signature`).
-* **Secrets:** Injected via GitHub Actions environment variables and Wrangler during deployment.
+* **Secrets:** Pages Function secrets set via `wrangler pages secret put` in CI. Uses Cloudflare's secrets API (persists across deployments). GitHub Actions secrets are the source of truth.
 
 ## Data Management
 * **Database Migrations:** Expand and Contract pattern. Migrations are in `/migrations` and run automatically before each environment's code deployment in the CI pipeline.
