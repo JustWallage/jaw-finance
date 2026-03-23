@@ -27,32 +27,53 @@ provider "cloudflare" {
   api_token = var.cloudflare_api_token
 }
 
-variable "cloudflare_account_id" {
-  type        = string
-  description = "Cloudflare Account ID"
-}
-
-variable "cloudflare_api_token" {
-  type        = string
-  sensitive   = true
-  description = "Cloudflare API Token"
-}
-
-variable "allowed_emails" {
-  type        = list(string)
-  default     = ["just+cloudflare@wallage.nl"]
-  description = "Email addresses allowed through Access OTP"
-}
-
 # --- Cloudflare Pages Project ---
 resource "cloudflare_pages_project" "jaw_finance" {
   account_id        = var.cloudflare_account_id
   name              = "jaw-finance"
   production_branch = "main"
 
-  # Workaround for Cloudflare Provider v5 PATCH bug
-  lifecycle {
-    ignore_changes = all
+  deployment_configs = {
+    preview = {
+      env_vars = {
+        BUNQ_API_KEY_SANDBOX = {
+          type  = "secret_text"
+          value = var.bunq_api_key_sandbox
+        }
+        BUNQ_PRIVATE_KEY_SANDBOX = {
+          type  = "secret_text"
+          value = var.bunq_private_key_sandbox
+        }
+        BUNQ_INSTALLATION_TOKEN_SANDBOX = {
+          type  = "secret_text"
+          value = var.bunq_installation_token_sandbox
+        }
+        BUNQ_SERVER_PUBLIC_KEY_SANDBOX = {
+          type  = "secret_text"
+          value = var.bunq_server_public_key_sandbox
+        }
+      }
+    }
+    production = {
+      env_vars = {
+        BUNQ_API_KEY_SANDBOX = {
+          type  = "secret_text"
+          value = var.bunq_api_key_sandbox
+        }
+        BUNQ_PRIVATE_KEY_SANDBOX = {
+          type  = "secret_text"
+          value = var.bunq_private_key_sandbox
+        }
+        BUNQ_INSTALLATION_TOKEN_SANDBOX = {
+          type  = "secret_text"
+          value = var.bunq_installation_token_sandbox
+        }
+        BUNQ_SERVER_PUBLIC_KEY_SANDBOX = {
+          type  = "secret_text"
+          value = var.bunq_server_public_key_sandbox
+        }
+      }
+    }
   }
 }
 
@@ -79,14 +100,6 @@ resource "cloudflare_d1_database" "jaw_finance_prod" {
   read_replication = {
     mode = "disabled"
   }
-}
-
-output "d1_database_id_staging" {
-  value = cloudflare_d1_database.jaw_finance_staging.id
-}
-
-output "d1_database_id_prod" {
-  value = cloudflare_d1_database.jaw_finance_prod.id
 }
 
 # --- Cloudflare Access: Zero Trust ---
