@@ -35,6 +35,11 @@ resource "cloudflare_pages_project" "jaw_finance" {
 
   deployment_configs = {
     preview = {
+      d1_databases = {
+        DB = {
+          id = cloudflare_d1_database.jaw_finance_staging.id
+        }
+      }
       env_vars = {
         BUNQ_API_KEY_SANDBOX = {
           type  = "secret_text"
@@ -55,6 +60,11 @@ resource "cloudflare_pages_project" "jaw_finance" {
       }
     }
     production = {
+      d1_databases = {
+        DB = {
+          id = cloudflare_d1_database.jaw_finance_prod.id
+        }
+      }
       env_vars = {
         BUNQ_API_KEY_SANDBOX = {
           type  = "secret_text"
@@ -74,6 +84,12 @@ resource "cloudflare_pages_project" "jaw_finance" {
         }
       }
     }
+  }
+
+  # wrangler pages deploy may update wrangler_config_hash and other
+  # deployment-level fields; let Terraform ignore that drift.
+  lifecycle {
+    ignore_changes = [deployment_configs]
   }
 }
 

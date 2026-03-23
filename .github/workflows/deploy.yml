@@ -74,18 +74,11 @@ jobs:
           echo "STAGING_DB_ID=$(terraform output -raw d1_database_id_staging)" >> "$GITHUB_ENV"
           echo "PROD_DB_ID=$(terraform output -raw d1_database_id_prod)" >> "$GITHUB_ENV"
 
-      - name: Generate wrangler.toml
-        run: |
-          sed \
-            -e "s/STAGING_DB_ID/$STAGING_DB_ID/g" \
-            -e "s/PROD_DB_ID/$PROD_DB_ID/g" \
-            wrangler.toml.template > wrangler.toml
-
       - name: Build
         run: pnpm build
 
       - name: Run Staging DB Migrations
-        run: pnpm exec wrangler d1 migrations apply DB  --remote --env preview
+        run: pnpm exec wrangler d1 migrations apply DB --remote --database-id $STAGING_DB_ID
 
       - name: Deploy to Staging
         run: pnpm exec wrangler pages deploy dist --project-name jaw-finance --branch staging
@@ -97,7 +90,7 @@ jobs:
         run: pnpm exec playwright test
 
       - name: Run Production DB Migrations
-        run: pnpm exec wrangler d1 migrations apply DB  --remote --env production
+        run: pnpm exec wrangler d1 migrations apply DB --remote --database-id $PROD_DB_ID
 
       - name: Deploy to Production
         run: pnpm exec wrangler pages deploy dist --project-name jaw-finance --branch main

@@ -77,6 +77,7 @@ def main() -> None:
         environment_type,
         args.api_key,
         args.device_description,
+        all_permitted_ip=["*"],
     )
 
     installation = api_context.installation_context
