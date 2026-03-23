@@ -85,7 +85,7 @@ export default function App() {
       const res = await fetch("/api/bank/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ aspsp: { name: "bunq", country: "NL" } }),
+        body: JSON.stringify({ aspsp: { name: "Mock ASPSP", country: "NL" } }),
       });
       const data = (await res.json()) as { url?: string; error?: string };
       if (!res.ok || !data.url) {
