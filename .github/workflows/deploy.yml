@@ -81,7 +81,7 @@ jobs:
         run: pnpm build
 
       - name: Run Staging DB Migrations
-        run: pnpm exec wrangler d1 migrations apply DB --env preview
+        run: pnpm exec wrangler d1 migrations apply DB  --remote --env preview
 
       - name: Deploy to Staging
         run: pnpm exec wrangler pages deploy dist --project-name jaw-finance --branch staging
@@ -93,7 +93,7 @@ jobs:
         run: pnpm exec playwright test
 
       - name: Run Production DB Migrations
-        run: pnpm exec wrangler d1 migrations apply DB --env production
+        run: pnpm exec wrangler d1 migrations apply DB  --remote --env production
 
       - name: Deploy to Production
         run: pnpm exec wrangler pages deploy dist --project-name jaw-finance --branch main

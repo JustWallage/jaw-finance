@@ -32,6 +32,8 @@ Task one: you must keep this document up to date, but only with the broad contex
 * **Database Migrations:** Expand and Contract pattern. Migrations are in `/migrations` and run automatically before each environment's code deployment in the CI pipeline.
 * **Data Backfill:** Handled via Cloudflare Workflows, deployed via Wrangler. Designed to be durable, retryable, and completely idempotent using database-level `UNIQUE` constraints on the bunq transaction IDs.
 
+Your goal is to get enough context from the user before implementation, nothing can be still unclear. If anything is unclear or yet undecided you must use the askQuestions tool to confirm the missing pieces.
+
 YOU MUST END ALL RESPONSES WITH EXECUTING THE FOLLOWING COMMAND:
 
 ```sh
