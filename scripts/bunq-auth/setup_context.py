@@ -23,6 +23,7 @@ CLI arguments (override environment variables):
 import argparse
 import os
 import sys
+import urllib.request
 
 from bunq.sdk.context.api_context import ApiContext
 from bunq.sdk.context.api_environment_type import ApiEnvironmentType
@@ -71,13 +72,22 @@ def main() -> None:
 
     environment_type = resolve_environment(args.environment)
 
-    print(f"Creating bunq API context ({args.environment})…", file=sys.stderr)
+    # 1. Dynamically fetch the current machine's public IP
+    print("Fetching current public IP...", file=sys.stderr)
+    try:
+        current_ip = urllib.request.urlopen("https://api.ipify.org").read().decode("utf8").strip()
+    except Exception as e:
+        print(f"ERROR: Failed to fetch public IP: {e}", file=sys.stderr)
+        sys.exit(1)
 
+    print(f"Creating bunq API context ({args.environment}) with IPs: ['{current_ip}', '*']…", file=sys.stderr)
+
+    # 2. Pass BOTH the current IP and the wildcard to bunq
     api_context = ApiContext.create(
         environment_type,
         args.api_key,
         args.device_description,
-        all_permitted_ip=["*"],
+        all_permitted_ip=[current_ip, "*"],
     )
 
     installation = api_context.installation_context
