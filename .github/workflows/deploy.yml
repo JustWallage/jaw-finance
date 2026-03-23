@@ -79,17 +79,15 @@ jobs:
 
       - name: Set Pages Secrets
         run: |
-          secrets=(BUNQ_API_KEY_SANDBOX BUNQ_PRIVATE_KEY_SANDBOX BUNQ_INSTALLATION_TOKEN_SANDBOX BUNQ_SERVER_PUBLIC_KEY_SANDBOX)
+          secrets=(ENABLE_BANKING_APP_ID ENABLE_BANKING_SECRET)
           for name in "${secrets[@]}"; do
             for env in preview production; do
               printf '%s' "${!name}" | pnpm exec wrangler pages secret put "$name" --project-name jaw-finance --env "$env"
             done
           done
         env:
-          BUNQ_API_KEY_SANDBOX: ${{ secrets.BUNQ_API_KEY_SANDBOX }}
-          BUNQ_PRIVATE_KEY_SANDBOX: ${{ secrets.BUNQ_PRIVATE_KEY_SANDBOX }}
-          BUNQ_INSTALLATION_TOKEN_SANDBOX: ${{ secrets.BUNQ_INSTALLATION_TOKEN_SANDBOX }}
-          BUNQ_SERVER_PUBLIC_KEY_SANDBOX: ${{ secrets.BUNQ_SERVER_PUBLIC_KEY_SANDBOX }}
+          ENABLE_BANKING_APP_ID: ${{ secrets.ENABLE_BANKING_APP_ID }}
+          ENABLE_BANKING_SECRET: ${{ secrets.ENABLE_BANKING_SECRET }}
 
       - name: Build
         run: pnpm build

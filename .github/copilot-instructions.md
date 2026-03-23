@@ -25,12 +25,15 @@ Task one: you must keep this document up to date, but only with the broad contex
 
 ## Security & Integrations
 * **Authentication:** Cloudflare Access (Zero Trust) protects the application UI.
-* **bunq Webhooks (Future Phase):** Handled via `/functions/api/webhooks/bunq`. Protected via Cloudflare Access bypass rule, but strictly verified using cryptographic signatures (`X-Bunq-Server-Signature`).
+* **Banking Integration:** Enable Banking (Open Banking / PSD2) via REST API at `https://api.enablebanking.com`.
+  * JWT authentication: RS256 with `ENABLE_BANKING_APP_ID` as `kid` and `ENABLE_BANKING_SECRET` (PEM private key) for signing.
+  * OAuth-style redirect flow: `POST /auth` → bank redirect → callback with `code` → `POST /sessions`.
+  * Callback URL: `https://finance.just.wallage.nl/api/bank/callback`.
 * **Secrets:** Pages Function secrets set via `wrangler pages secret put` in CI. Uses Cloudflare's secrets API (persists across deployments). GitHub Actions secrets are the source of truth.
 
 ## Data Management
 * **Database Migrations:** Expand and Contract pattern. Migrations are in `/migrations` and run automatically before each environment's code deployment in the CI pipeline.
-* **Data Backfill:** Handled via Cloudflare Workflows, deployed via Wrangler. Designed to be durable, retryable, and completely idempotent using database-level `UNIQUE` constraints on the bunq transaction IDs.
+* **Transaction Storage:** Transactions fetched from Enable Banking are cached in D1. Idempotent upserts using a UNIQUE constraint on `(entry_reference, account_uid)`.
 
 Your goal is to get enough context from the user before implementation, nothing can be still unclear. If anything is unclear or yet undecided you must use the askQuestions tool to confirm the missing pieces.
 
