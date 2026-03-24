@@ -246,7 +246,7 @@ export default function App() {
                         {tx.booking_date ?? "—"}
                       </TableCell>
                       <TableCell>{tx.counterparty_name ?? "—"}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">
+                      <TableCell className="max-w-50 truncate">
                         {tx.remittance_info ?? "—"}
                       </TableCell>
                       <TableCell

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:pages": "wrangler pages dev --proxy 5173",
+    "dev:pages": "wrangler d1 migrations apply jaw-finance-local --local && wrangler pages dev --proxy 5173",
     "migrate:local": "echo y | wrangler d1 migrations apply jaw-finance-local --local",
     "build": "tsc && vite build",
     "preview": "vite preview",
