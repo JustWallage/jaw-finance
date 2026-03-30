@@ -96,7 +96,7 @@ jobs:
         run: pnpm exec wrangler d1 migrations apply DB --remote --env preview
 
       - name: Deploy to Staging
-        run: pnpm exec wrangler pages deploy dist --project-name jaw-finance --branch staging
+        run: pnpm exec wrangler pages deploy dist --project-name jaw-finance --branch staging --commit-dirty=true
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
@@ -108,4 +108,4 @@ jobs:
         run: pnpm exec wrangler d1 migrations apply DB --remote --env production
 
       - name: Deploy to Production
-        run: pnpm exec wrangler pages deploy dist --project-name jaw-finance --branch main
+        run: pnpm exec wrangler pages deploy dist --project-name jaw-finance --branch main --commit-dirty=true
