@@ -1,9 +1,9 @@
-const EB_BASE = "https://api.enablebanking.com";
-
 export interface EBEnv {
   DB: D1Database;
   ENABLE_BANKING_APP_ID: string;
   ENABLE_BANKING_SECRET: string;
+  ENABLE_BANKING_API_URL: string;
+  ENABLE_BANKING_CALLBACK_URL: string;
 }
 
 function base64url(buf: ArrayBuffer): string {
@@ -63,5 +63,6 @@ export async function ebFetch(
     headers.set("Content-Type", "application/json");
   }
   headers.set("Accept", "application/json");
-  return fetch(`${EB_BASE}${path}`, { ...options, headers });
+  const baseUrl = env.ENABLE_BANKING_API_URL;
+  return fetch(`${baseUrl}${path}`, { ...options, headers });
 }

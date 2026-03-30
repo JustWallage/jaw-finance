@@ -1,6 +1,10 @@
 name = "jaw-finance"
 compatibility_date = "2025-12-01"
 
+[vars]
+ENABLE_BANKING_API_URL = "http://localhost:8788/mock-enable-banking"
+ENABLE_BANKING_CALLBACK_URL = "http://localhost:8788/api/bank/callback"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "jaw-finance-local"

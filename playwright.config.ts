@@ -8,7 +8,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: "html",
   use: {
-    baseURL: process.env.CI ? 'https://staging.jaw-finance.pages.dev' : 'http://localhost:5173',
+    baseURL: process.env.CI ? 'https://staging.jaw-finance.pages.dev' : 'http://localhost:8788',
     screenshot: 'only-on-failure',
     trace: 'on-first-retry' /* https://playwright.dev/docs/trace-viewer */,
     video: 'retain-on-failure',

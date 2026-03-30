@@ -8,11 +8,20 @@ database_name = "jaw-finance-local"
 database_id = "local"
 migrations_dir = "migrations"
 
+[env.preview.vars]
+ENABLE_BANKING_API_URL = "https://staging.jaw-finance.pages.dev/mock-enable-banking"
+ENABLE_BANKING_CALLBACK_URL = "https://staging.jaw-finance.pages.dev/api/bank/callback"
+
 [[env.preview.d1_databases]]
 binding = "DB"
 database_name = "jaw-finance-staging"
 database_id = "STAGING_DB_ID"
 migrations_dir = "migrations"
+
+[env.production.vars]
+ENABLE_BANKING_API_URL = "https://api.enablebanking.com"
+ENABLE_BANKING_CALLBACK_URL = "https://finance.just.wallage.nl/api/bank/callback"
+ENVIRONMENT = "production"
 
 [[env.production.d1_databases]]
 binding = "DB"

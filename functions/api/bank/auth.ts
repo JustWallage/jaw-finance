@@ -1,7 +1,5 @@
 import { ebFetch, type EBEnv } from "../../lib/enable-banking";
 
-const CALLBACK_URL = "https://finance.just.wallage.nl/api/bank/callback";
-
 interface AuthRequest {
   aspsp: { name: string; country: string };
 }
@@ -21,7 +19,7 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
         access: { valid_until: validUntil },
         aspsp: body.aspsp,
         state,
-        redirect_url: CALLBACK_URL,
+        redirect_url: env.ENABLE_BANKING_CALLBACK_URL,
         psu_type: "personal",
       }),
     });
