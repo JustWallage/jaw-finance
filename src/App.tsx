@@ -1,4 +1,4 @@
-import { Loader2, RefreshCw, Link as LinkIcon, AlertTriangle } from "lucide-react";
+import { Loader2, RefreshCw, Link as LinkIcon, AlertTriangle, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -16,6 +16,12 @@ import {
 } from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useBankConnection } from "./hooks/useBankConnection";
 
 export default function App() {
@@ -25,8 +31,10 @@ export default function App() {
     error,
     activeConnection,
     expiringSoon,
+    importProgress,
     handleConnect,
     handleRefresh,
+    handleImportHistory,
   } = useBankConnection();
 
   return (
@@ -81,7 +89,7 @@ export default function App() {
             <>
               <Button
                 onClick={handleRefresh}
-                disabled={loading !== null}
+                disabled={loading !== null || importProgress !== null}
                 size="lg"
                 data-testid="refresh-button"
               >
@@ -100,15 +108,57 @@ export default function App() {
               <Button
                 variant="outline"
                 onClick={handleConnect}
-                disabled={loading !== null}
+                disabled={loading !== null || importProgress !== null}
                 size="lg"
                 data-testid="reconnect-button"
               >
                 Reconnect
               </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  disabled={loading !== null || importProgress !== null}
+                  data-testid="import-history-button"
+                  render={
+                    <Button variant="outline" size="lg">
+                      <History className="h-4 w-4" />
+                      Import History
+                    </Button>
+                  }
+                />
+                <DropdownMenuContent>
+                  <DropdownMenuItem
+                    data-testid="import-3m"
+                    onClick={() => handleImportHistory(3)}
+                  >
+                    3 Months
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    data-testid="import-1y"
+                    onClick={() => handleImportHistory(12)}
+                  >
+                    1 Year
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    data-testid="import-5y"
+                    onClick={() => handleImportHistory(60)}
+                  >
+                    5 Years
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           )}
         </div>
+
+        {importProgress && (
+          <div
+            className="flex items-center justify-center gap-2 text-sm text-muted-foreground"
+            data-testid="import-progress"
+          >
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {importProgress}
+          </div>
+        )}
 
         {activeConnection && (
           <Card>

@@ -43,7 +43,7 @@ Task one: you must keep this document up to date, but only with the broad contex
 * **Transaction Storage:** Transactions fetched from Enable Banking are cached in D1. Idempotent upserts using a UNIQUE constraint on `(entry_reference, account_uid)`.
 * **Mock State:** The Enable Banking mock uses the existing Staging/Local D1 database for state management. All mock-related tables are strictly prefixed with `mock_enable_banking_`.
 
-Your goal is to get enough context from the user before implementation, nothing can be still unclear. If anything is unclear or yet undecided you must use the askQuestions tool to confirm the missing pieces.
+Your goal is to get enough context from the user before implementation, nothing can be still unclear. If anything is unclear or yet undecided you must use the `askQuestions` tool to confirm the missing pieces.
 
 YOU MUST END ALL RESPONSES WITH EXECUTING THE FOLLOWING COMMAND:
 

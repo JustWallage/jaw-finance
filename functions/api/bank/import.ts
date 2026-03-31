@@ -1,0 +1,106 @@
+import { ebFetch, type EBEnv } from "../../lib/enable-banking";
+import type { EBTransaction, EBTransactionsResponse } from "../../../db/types";
+
+interface ImportRequest {
+  account_uid: string;
+  date_from: string;
+  date_to: string;
+}
+
+export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
+  const { env } = context;
+  try {
+    const body = (await context.request.json()) as ImportRequest;
+
+    if (!body.account_uid || !body.date_from || !body.date_to) {
+      return Response.json(
+        { error: "account_uid, date_from, and date_to are required" },
+        { status: 400 },
+      );
+    }
+
+    const connection = await env.DB.prepare(
+      "SELECT account_uid FROM bank_connections WHERE account_uid = ? AND valid_until > datetime('now')",
+    )
+      .bind(body.account_uid)
+      .first<{ account_uid: string }>();
+
+    if (!connection) {
+      return Response.json(
+        { error: "No active connection for this account" },
+        { status: 400 },
+      );
+    }
+
+    let totalSynced = 0;
+    let continuationKey: string | undefined;
+
+    do {
+      let path = `/accounts/${body.account_uid}/transactions?date_from=${body.date_from}&date_to=${body.date_to}`;
+      if (continuationKey) {
+        path += `&continuation_key=${encodeURIComponent(continuationKey)}`;
+      }
+
+      const res = await ebFetch(path, env);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Transactions fetch failed (${res.status}): ${text}`);
+      }
+
+      const data = (await res.json()) as EBTransactionsResponse;
+      continuationKey = data.continuation_key ?? undefined;
+
+      for (const tx of data.transactions) {
+        const counterparty =
+          tx.credit_debit_indicator === "CRDT"
+            ? tx.debtor?.name
+            : tx.creditor?.name;
+
+        await env.DB.prepare(
+          `INSERT INTO transactions (entry_reference, account_uid, amount, currency, credit_debit, status, booking_date, transaction_date, counterparty_name, remittance_info)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(entry_reference, account_uid) DO NOTHING`,
+        )
+          .bind(
+            tx.entry_reference ?? null,
+            body.account_uid,
+            tx.transaction_amount.amount,
+            tx.transaction_amount.currency,
+            tx.credit_debit_indicator,
+            tx.status,
+            tx.booking_date ?? null,
+            tx.transaction_date ?? null,
+            counterparty ?? null,
+            tx.remittance_information?.join("; ") ?? null,
+          )
+          .run();
+        totalSynced++;
+      }
+    } while (continuationKey);
+
+    await env.DB.prepare(
+      `UPDATE bank_connections
+       SET oldest_synced_date = ?
+       WHERE account_uid = ?
+         AND (oldest_synced_date IS NULL OR oldest_synced_date > ?)`,
+    )
+      .bind(body.date_from, body.account_uid, body.date_from)
+      .run();
+
+    const updated = await env.DB.prepare(
+      "SELECT oldest_synced_date FROM bank_connections WHERE account_uid = ?",
+    )
+      .bind(body.account_uid)
+      .first<{ oldest_synced_date: string | null }>();
+
+    return Response.json({
+      synced: totalSynced,
+      oldest_synced_date: updated?.oldest_synced_date ?? body.date_from,
+    });
+  } catch (err) {
+    return Response.json(
+      { error: err instanceof Error ? err.message : "Unknown error" },
+      { status: 500 },
+    );
+  }
+};

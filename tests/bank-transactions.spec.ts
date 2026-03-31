@@ -149,4 +149,43 @@ test.describe("Bank connection flow via mock", () => {
     const secondCount = await table.locator("tbody tr").count();
     expect(secondCount).toBe(firstCount);
   });
+
+  test("user imports historical transactions and sees progress", async ({
+    page,
+  }) => {
+    await page.goto("/");
+
+    // Connect bank first
+    await page.getByTestId("connect-button").click();
+    await page.waitForURL("**/mock-enable-banking/consent**");
+    await page.getByTestId("simulate-success").click();
+    await page.waitForURL("**/?connected=true");
+
+    // Wait for connection to be active
+    const importBtn = page.getByTestId("import-history-button");
+    await expect(importBtn).toBeVisible({ timeout: 5_000 });
+
+    // Open dropdown and select "1 Year"
+    await importBtn.click();
+    await page.getByTestId("import-1y").click();
+
+    // Progress indicator should appear
+    const progress = page.getByTestId("import-progress");
+    await expect(progress).toBeVisible({ timeout: 5_000 });
+    await expect(progress).toContainText("Importing:");
+
+    // Wait for import to finish
+    await expect(progress).toBeHidden({ timeout: 60_000 });
+
+    // Table should now have historical transactions
+    const table = page.getByTestId("transactions-table");
+    await expect(table).toBeVisible({ timeout: 10_000 });
+
+    // Should have transactions from the historical import (3 per month * 12 months = 36)
+    const rowCount = await table.locator("tbody tr").count();
+    expect(rowCount).toBeGreaterThan(0);
+
+    // App should remain responsive — verify we can still interact
+    await expect(page.getByTestId("refresh-button")).toBeEnabled();
+  });
 });

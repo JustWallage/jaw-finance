@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { DBBankConnection, DBTransaction } from "../../db/types";
 
 /** Subset of DBBankConnection fields returned by the status API. */
 export type Connection = Pick<
   DBBankConnection,
-  "id" | "aspsp_name" | "aspsp_country" | "iban" | "valid_until"
+  "id" | "account_uid" | "aspsp_name" | "aspsp_country" | "iban" | "valid_until" | "oldest_synced_date"
 >;
 
 /** Subset of DBTransaction fields returned by the transactions API. */
@@ -27,6 +27,8 @@ export function useBankConnection() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState<"connect" | "refresh" | null>(null);
   const [error, setError] = useState("");
+  const [importProgress, setImportProgress] = useState<string | null>(null);
+  const importAbort = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -107,6 +109,78 @@ export function useBankConnection() {
     activeConnection != null &&
     new Date(activeConnection.valid_until).getTime() - Date.now() < DAYS_14;
 
+  async function handleImportHistory(months: number) {
+    if (!activeConnection) return;
+
+    const now = new Date();
+    const targetDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - months, now.getUTCDate()));
+
+    // Already synced far enough back — nothing to do
+    if (
+      activeConnection.oldest_synced_date &&
+      new Date(activeConnection.oldest_synced_date + "T00:00:00Z") <= targetDate
+    ) {
+      return;
+    }
+
+    importAbort.current = new AbortController();
+    setImportProgress("Starting import…");
+    setError("");
+
+    // Start from the oldest synced point (or today if never synced)
+    const cursor = activeConnection.oldest_synced_date
+      ? new Date(activeConnection.oldest_synced_date + "T00:00:00Z")
+      : new Date();
+
+    try {
+      while (cursor > targetDate) {
+        if (importAbort.current.signal.aborted) break;
+
+        const chunkEnd = new Date(cursor);
+        cursor.setUTCMonth(cursor.getUTCMonth() - 1);
+        const chunkStart = new Date(Math.max(cursor.getTime(), targetDate.getTime()));
+
+        const dateFrom = chunkStart.toISOString().split("T")[0];
+        const dateTo = chunkEnd.toISOString().split("T")[0];
+
+        const monthLabel = chunkStart.toLocaleString("default", {
+          month: "short",
+          year: "numeric",
+        });
+        setImportProgress(`Importing: ${monthLabel}…`);
+
+        const res = await fetch("/api/bank/import", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            account_uid: activeConnection.account_uid,
+            date_from: dateFrom,
+            date_to: dateTo,
+          }),
+        });
+
+        const data = (await res.json()) as {
+          synced?: number;
+          error?: string;
+        };
+        if (!res.ok) {
+          setError(data.error ?? "Import failed");
+          break;
+        }
+      }
+
+      await fetchStatus();
+      await fetchTransactions();
+    } catch (err) {
+      if (!(err instanceof DOMException && err.name === "AbortError")) {
+        setError(err instanceof Error ? err.message : "Import failed");
+      }
+    } finally {
+      setImportProgress(null);
+      importAbort.current = null;
+    }
+  }
+
   return {
     connections,
     transactions,
@@ -114,7 +188,9 @@ export function useBankConnection() {
     error,
     activeConnection,
     expiringSoon,
+    importProgress,
     handleConnect,
     handleRefresh,
+    handleImportHistory,
   } as const;
 }
