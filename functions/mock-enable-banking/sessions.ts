@@ -36,13 +36,17 @@ export const onRequestPost: PagesFunction<MockEnv> = async (context) => {
     .bind(body.code)
     .run();
 
-  const sessionId = crypto.randomUUID();
-  const accountUid = crypto.randomUUID();
+  const sessionId = "mock-session-id-001";
+  const accountUid = "mock-account-uid-123";
   const iban = "NL00MOCK0123456789";
 
   await env.DB.prepare(
     `INSERT INTO mock_enable_banking_sessions (session_id, account_uid, aspsp_name, aspsp_country, iban, valid_until)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(session_id) DO UPDATE SET
+       valid_until = excluded.valid_until,
+       aspsp_name = excluded.aspsp_name,
+       aspsp_country = excluded.aspsp_country`,
   )
     .bind(sessionId, accountUid, row.aspsp_name, row.aspsp_country, iban, row.valid_until)
     .run();

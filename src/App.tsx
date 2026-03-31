@@ -45,7 +45,7 @@ export default function App() {
           </Alert>
         )}
 
-        {expiringSoon && (
+        {expiringSoon && activeConnection && (
           <Alert data-testid="expiry-warning">
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>Connection expiring soon</AlertTitle>

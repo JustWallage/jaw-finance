@@ -111,4 +111,42 @@ test.describe("Bank connection flow via mock", () => {
       new Date(expiringDate).toLocaleDateString(),
     );
   });
+
+  test("duplicate transactions are not inserted on reconnect", async ({
+    page,
+  }) => {
+    await page.goto("/");
+
+    // First connection: connect and refresh
+    await page.getByTestId("connect-button").click();
+    await page.waitForURL("**/mock-enable-banking/consent**");
+    await page.getByTestId("simulate-success").click();
+    await page.waitForURL("**/?connected=true");
+
+    const refreshBtn = page.getByTestId("refresh-button");
+    await expect(refreshBtn).toBeVisible({ timeout: 5_000 });
+    await refreshBtn.click();
+
+    const table = page.getByTestId("transactions-table");
+    await expect(table).toBeVisible({ timeout: 10_000 });
+
+    const firstCount = await table.locator("tbody tr").count();
+    expect(firstCount).toBeGreaterThan(0);
+
+    // Second connection: reconnect and refresh again
+    await page.getByTestId("reconnect-button").click();
+    await page.waitForURL("**/mock-enable-banking/consent**");
+    await page.getByTestId("simulate-success").click();
+    await page.waitForURL("**/?connected=true");
+
+    const refreshBtn2 = page.getByTestId("refresh-button");
+    await expect(refreshBtn2).toBeVisible({ timeout: 5_000 });
+    await refreshBtn2.click();
+
+    // Wait for table to re-render with fresh data
+    await expect(table).toBeVisible({ timeout: 10_000 });
+
+    const secondCount = await table.locator("tbody tr").count();
+    expect(secondCount).toBe(firstCount);
+  });
 });
