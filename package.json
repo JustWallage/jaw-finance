@@ -12,7 +12,7 @@
     "check:ts": "tsc --noEmit",
     "check:tf:fmt": "cd iac && terraform fmt -check",
     "check:tf:validate": "cd iac && terraform validate",
-    "check:tf": "pnpm run check:tf:fmt ; pnpm run check:tf:validate",
+    "check:tf": "pnpm run check:tf:fmt && pnpm run check:tf:validate",
     "check": "pnpm run check:ts && pnpm run check:tf:fmt && pnpm run check:tf",
     "test:e2e": "playwright test",
     "prepare": "husky"
