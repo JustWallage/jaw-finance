@@ -1,16 +1,5 @@
 import { ebFetch, type EBEnv } from "../../lib/enable-banking";
-
-interface AccountResource {
-  uid?: string;
-  account_id?: { iban?: string };
-}
-
-interface SessionResponse {
-  session_id: string;
-  accounts: AccountResource[];
-  aspsp: { name: string; country: string };
-  access: { valid_until: string };
-}
+import type { EBAccountResource, EBSessionResponse } from "../../../db/types";
 
 export const onRequestGet: PagesFunction<EBEnv> = async (context) => {
   const { env } = context;
@@ -41,7 +30,7 @@ export const onRequestGet: PagesFunction<EBEnv> = async (context) => {
       );
     }
 
-    const data = (await res.json()) as SessionResponse;
+    const data = (await res.json()) as EBSessionResponse;
 
     for (const account of data.accounts) {
       if (!account.uid) continue;

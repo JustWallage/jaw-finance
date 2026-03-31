@@ -1,25 +1,5 @@
 import { ebFetch, type EBEnv } from "../../lib/enable-banking";
-
-interface EBTransaction {
-  entry_reference?: string;
-  transaction_amount: { currency: string; amount: string };
-  credit_debit_indicator: string;
-  status: string;
-  booking_date?: string;
-  transaction_date?: string;
-  creditor?: { name?: string };
-  debtor?: { name?: string };
-  remittance_information?: string[];
-}
-
-interface TransactionsResponse {
-  transactions: EBTransaction[];
-  continuation_key?: string;
-}
-
-interface ConnectionRow {
-  account_uid: string;
-}
+import type { EBTransaction, EBTransactionsResponse } from "../../../db/types";
 
 export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
   const { env } = context;
@@ -27,7 +7,7 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
     const connections = await env.DB.prepare(
       "SELECT account_uid FROM bank_connections WHERE valid_until > datetime('now')",
     )
-      .all<ConnectionRow>();
+      .all<Pick<import("../../../db/types").DBBankConnection, "account_uid">>();
 
     if (!connections.results.length) {
       return Response.json({ error: "No active bank connections" }, { status: 400 });
@@ -53,7 +33,7 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
           throw new Error(`Transactions fetch failed (${res.status}): ${text}`);
         }
 
-        const data = (await res.json()) as TransactionsResponse;
+        const data = (await res.json()) as EBTransactionsResponse;
         continuationKey = data.continuation_key ?? undefined;
 
         for (const tx of data.transactions) {

@@ -76,4 +76,39 @@ test.describe("Bank connection flow via mock", () => {
     await expect(errorAlert).toBeVisible();
     await expect(errorAlert).toContainText("ASPSP connection failed");
   });
+
+  test("user sees expiry warning when connection is about to expire", async ({
+    page,
+  }) => {
+    const expiringDate = new Date(
+      Date.now() + 5 * 24 * 60 * 60 * 1000,
+    ).toISOString();
+
+    await page.route("**/api/bank/status", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          connections: [
+            {
+              id: 1,
+              aspsp_name: "Mock ASPSP",
+              aspsp_country: "NL",
+              iban: "NL00MOCK0123456789",
+              valid_until: expiringDate,
+            },
+          ],
+        }),
+      }),
+    );
+
+    await page.goto("/");
+
+    const warning = page.getByTestId("expiry-warning");
+    await expect(warning).toBeVisible({ timeout: 5_000 });
+    await expect(warning).toContainText("Connection expiring soon");
+    await expect(warning).toContainText(
+      new Date(expiringDate).toLocaleDateString(),
+    );
+  });
 });

@@ -18,5 +18,5 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "functions", "vite-env.d.ts"]
+  "include": ["src", "functions", "db", "vite-env.d.ts"]
 }

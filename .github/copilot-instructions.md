@@ -10,12 +10,12 @@ Task one: you must keep this document up to date, but only with the broad contex
 
 ## Tech Stack
 * **Project Name:** `jaw-finance`
-* **Monorepo:** React UI in `/src`, API in `/functions`, IaC in `/iac`, Tests in `/tests`.
+* **Monorepo:** React UI in `/src`, API in `/functions`, IaC in `/iac`, Tests in `/tests`, Database schemas/types in `/db`.
 * **Frontend:** React, Vite, Tailwind CSS, Shadcn UI (must download components, not create them manually).
 * **Backend:** Cloudflare Pages Functions.
 * **Database:** Cloudflare D1 (Two separate instances: Staging and Production), provisioned via Terraform.
   * Database bindings are dynamically templated into `wrangler.toml` during the CI pipeline using Terraform outputs (`wrangler.toml.template` → `wrangler.toml`).
-  * D1 Migrations (in `/migrations`) are automatically applied in the CI pipeline before each environment's code deployment.
+  * D1 Migrations (in `db/migrations`) are automatically applied in the CI pipeline before each environment's code deployment. Configured via `migrations_dir = "db/migrations"` in wrangler configuration.
 * **Package Manager:** pnpm.
 * **CI/CD:** GitHub Actions.
 * **E2E Testing:** Playwright.

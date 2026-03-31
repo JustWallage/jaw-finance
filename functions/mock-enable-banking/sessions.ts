@@ -1,4 +1,5 @@
 import type { EBEnv } from "../lib/enable-banking";
+import type { MockAuthCodeRow } from "../../db/types";
 
 interface MockEnv extends EBEnv {
   ENVIRONMENT?: string;
@@ -6,15 +7,6 @@ interface MockEnv extends EBEnv {
 
 interface SessionBody {
   code: string;
-}
-
-interface AuthCodeRow {
-  code: string;
-  aspsp_name: string;
-  aspsp_country: string;
-  redirect_url: string;
-  valid_until: string;
-  used: number;
 }
 
 export const onRequestPost: PagesFunction<MockEnv> = async (context) => {
@@ -29,7 +21,7 @@ export const onRequestPost: PagesFunction<MockEnv> = async (context) => {
     "SELECT * FROM mock_enable_banking_auth_codes WHERE code = ? AND used = 0",
   )
     .bind(body.code)
-    .first<AuthCodeRow>();
+    .first<MockAuthCodeRow>();
 
   if (!row) {
     return Response.json(
