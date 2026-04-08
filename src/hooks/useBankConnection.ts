@@ -69,13 +69,24 @@ export function useBankConnection() {
     }
   }
 
-  async function fetchTransactions() {
+  async function fetchTransactions(since?: string) {
     try {
-      const res = await fetch("/api/bank/transactions", {
-        headers: authHeaders(),
-      });
+      const url = since
+        ? `/api/bank/transactions?since=${since}`
+        : "/api/bank/transactions";
+      const res = await fetch(url, { headers: authHeaders() });
       const data = (await res.json()) as { transactions: Transaction[] };
-      setTransactions(data.transactions);
+      if (since) {
+        setTransactions((prev) => {
+          const existingIds = new Set(prev.map((t) => t.id));
+          const newTxns = data.transactions.filter(
+            (t) => !existingIds.has(t.id),
+          );
+          return [...newTxns, ...prev];
+        });
+      } else {
+        setTransactions(data.transactions);
+      }
     } catch {
       /* ignore on load */
     }
@@ -107,6 +118,7 @@ export function useBankConnection() {
     setLoading("refresh");
     setError("");
     try {
+      const latestDate = transactions[0]?.booking_date ?? undefined;
       const res = await fetch("/api/bank/refresh", {
         method: "POST",
         headers: authHeaders(),
@@ -115,7 +127,7 @@ export function useBankConnection() {
       if (!res.ok) {
         setError(data.error ?? "Refresh failed");
       }
-      await fetchTransactions();
+      await fetchTransactions(latestDate);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");
     } finally {
