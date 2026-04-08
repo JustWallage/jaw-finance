@@ -9,6 +9,7 @@ interface GenerateCodeBody {
   aspsp_country: string;
   redirect_url: string;
   valid_until: string;
+  state: string;
 }
 
 export const onRequestPost: PagesFunction<MockEnv> = async (context) => {
@@ -21,10 +22,17 @@ export const onRequestPost: PagesFunction<MockEnv> = async (context) => {
   const code = crypto.randomUUID();
 
   await env.DB.prepare(
-    `INSERT INTO mock_enable_banking_auth_codes (code, aspsp_name, aspsp_country, redirect_url, valid_until)
-     VALUES (?, ?, ?, ?, ?)`,
+    `INSERT INTO mock_enable_banking_auth_codes (code, aspsp_name, aspsp_country, redirect_url, valid_until, state)
+     VALUES (?, ?, ?, ?, ?, ?)`,
   )
-    .bind(code, body.aspsp_name, body.aspsp_country, body.redirect_url, body.valid_until)
+    .bind(
+      code,
+      body.aspsp_name,
+      body.aspsp_country,
+      body.redirect_url,
+      body.valid_until,
+      body.state,
+    )
     .run();
 
   return Response.json({ code });

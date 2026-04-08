@@ -52,7 +52,8 @@ export const onRequestGet: PagesFunction<MockEnv> = async (context) => {
           aspsp_name: ${JSON.stringify(aspspName)},
           aspsp_country: ${JSON.stringify(aspspCountry)},
           redirect_url: ${JSON.stringify(redirectUrl)},
-          valid_until: ${JSON.stringify(validUntil)}
+          valid_until: ${JSON.stringify(validUntil)},
+          state: ${JSON.stringify(state)}
         })
       });
       const data = await res.json();

@@ -25,7 +25,10 @@ export const onRequestPost: PagesFunction<MockEnv> = async (context) => {
 
   if (!row) {
     return Response.json(
-      { message: "Wrong authorization code provided", error: "WRONG_AUTHORIZATION_CODE" },
+      {
+        message: "Wrong authorization code provided",
+        error: "WRONG_AUTHORIZATION_CODE",
+      },
       { status: 400 },
     );
   }
@@ -37,7 +40,17 @@ export const onRequestPost: PagesFunction<MockEnv> = async (context) => {
     .run();
 
   const sessionId = "mock-session-id-001";
-  const accountUid = "mock-account-uid-123";
+  const userPrefix = row.state
+    ? (() => {
+        try {
+          const s = JSON.parse(atob(row.state)) as { email?: string };
+          return s.email?.split("@")[0] ?? "unknown";
+        } catch {
+          return "unknown";
+        }
+      })()
+    : "unknown";
+  const accountUid = `mock-account-uid-${userPrefix}`;
   const iban = "NL00MOCK0123456789";
 
   await env.DB.prepare(
@@ -48,7 +61,14 @@ export const onRequestPost: PagesFunction<MockEnv> = async (context) => {
        aspsp_name = excluded.aspsp_name,
        aspsp_country = excluded.aspsp_country`,
   )
-    .bind(sessionId, accountUid, row.aspsp_name, row.aspsp_country, iban, row.valid_until)
+    .bind(
+      sessionId,
+      accountUid,
+      row.aspsp_name,
+      row.aspsp_country,
+      iban,
+      row.valid_until,
+    )
     .run();
 
   return Response.json({

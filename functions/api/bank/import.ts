@@ -60,7 +60,7 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
         await env.DB.prepare(
           `INSERT INTO transactions (entry_reference, account_uid, amount, currency, credit_debit, status, booking_date, transaction_date, counterparty_name, remittance_info, user_email)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON CONFLICT(entry_reference, account_uid) DO NOTHING`,
+           ON CONFLICT(entry_reference, account_uid, user_email) DO NOTHING`,
         )
           .bind(
             tx.entry_reference ?? null,

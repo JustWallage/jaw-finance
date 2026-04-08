@@ -22,9 +22,9 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
 
     for (const conn of connections.results) {
       const latestRow = await env.DB.prepare(
-        "SELECT MAX(booking_date) as latest FROM transactions WHERE account_uid = ?",
+        "SELECT MAX(booking_date) as latest FROM transactions WHERE account_uid = ? AND user_email = ?",
       )
-        .bind(conn.account_uid)
+        .bind(conn.account_uid, userEmail)
         .first<{ latest: string | null }>();
 
       const dateFrom =
@@ -58,7 +58,7 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
           await env.DB.prepare(
             `INSERT INTO transactions (entry_reference, account_uid, amount, currency, credit_debit, status, booking_date, transaction_date, counterparty_name, remittance_info, user_email)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-             ON CONFLICT(entry_reference, account_uid) DO NOTHING`,
+             ON CONFLICT(entry_reference, account_uid, user_email) DO NOTHING`,
           )
             .bind(
               tx.entry_reference ?? null,

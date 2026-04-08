@@ -72,5 +72,6 @@ export interface MockAuthCodeRow {
   aspsp_country: string;
   redirect_url: string;
   valid_until: string;
+  state: string | null;
   used: number;
 }
