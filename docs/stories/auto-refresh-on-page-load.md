@@ -1,0 +1,1 @@
+When the user fetches the homepage, check if the latest transaction (created_at value) is > 5 minutes old, if yes, refresh automatically, this can be done from the frontend.

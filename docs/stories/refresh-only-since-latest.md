@@ -1,0 +1,1 @@
+Make the refresh button only fetch the transactions since the latest transaction that is available in the db. So eg if the latest transaction in the db is 14-03-2026, then use datefrom 14-03-2026 till today in the refresh query.

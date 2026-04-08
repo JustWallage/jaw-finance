@@ -60,7 +60,9 @@ test.describe("Bank connection flow via mock", () => {
     await expect(errorAlert).toContainText("Denied data sharing consent");
   });
 
-  test("user sees failure error when bank connection fails", async ({ page }) => {
+  test("user sees failure error when bank connection fails", async ({
+    page,
+  }) => {
     await page.goto("/");
 
     const connectBtn = page.getByTestId("connect-button");
@@ -187,5 +189,32 @@ test.describe("Bank connection flow via mock", () => {
 
     // App should remain responsive — verify we can still interact
     await expect(page.getByTestId("refresh-button")).toBeEnabled();
+  });
+
+  test("refresh only fetches transactions since latest in db", async ({
+    page,
+    request,
+  }) => {
+    await page.goto("/");
+
+    // Connect bank
+    await page.getByTestId("connect-button").click();
+    await page.waitForURL("**/mock-enable-banking/consent**");
+    await page.getByTestId("simulate-success").click();
+    await page.waitForURL("**/?connected=true");
+
+    // First refresh: no transactions in DB, falls back to 90 days ago → all 5 recent mock txns
+    const refreshBtn = page.getByTestId("refresh-button");
+    await expect(refreshBtn).toBeVisible({ timeout: 5_000 });
+
+    const firstRefresh = await request.post("/api/bank/refresh");
+    const firstBody = await firstRefresh.json();
+    expect(firstBody.synced).toBe(5);
+
+    // Second refresh: latest booking_date in DB is yesterday (daysAgo(1)) →
+    // mock filters to booking_date >= that date → only 1 transaction
+    const secondRefresh = await request.post("/api/bank/refresh");
+    const secondBody = await secondRefresh.json();
+    expect(secondBody.synced).toBe(1);
   });
 });

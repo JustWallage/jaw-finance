@@ -4,70 +4,96 @@ interface MockEnv extends EBEnv {
   ENVIRONMENT?: string;
 }
 
-/** Fixed recent transactions returned when no date range is specified or for the current period. */
-const RECENT_TRANSACTIONS = [
-  {
-    entry_reference: "MOCK-TX-001",
-    transaction_amount: { currency: "EUR", amount: "1250.00" },
-    credit_debit_indicator: "CRDT",
-    status: "BOOK",
-    booking_date: "2025-01-15",
-    transaction_date: "2025-01-15",
-    value_date: "2025-01-15",
-    debtor: { name: "Employer BV" },
-    remittance_information: ["Salary January 2025"],
-  },
-  {
-    entry_reference: "MOCK-TX-002",
-    transaction_amount: { currency: "EUR", amount: "42.50" },
-    credit_debit_indicator: "DBIT",
-    status: "BOOK",
-    booking_date: "2025-01-14",
-    transaction_date: "2025-01-14",
-    value_date: "2025-01-14",
-    creditor: { name: "Albert Heijn" },
-    remittance_information: ["Groceries"],
-  },
-  {
-    entry_reference: "MOCK-TX-003",
-    transaction_amount: { currency: "EUR", amount: "9.99" },
-    credit_debit_indicator: "DBIT",
-    status: "BOOK",
-    booking_date: "2025-01-13",
-    transaction_date: "2025-01-13",
-    value_date: "2025-01-13",
-    creditor: { name: "Netflix" },
-    remittance_information: ["Monthly subscription"],
-  },
-  {
-    entry_reference: "MOCK-TX-004",
-    transaction_amount: { currency: "EUR", amount: "500.00" },
-    credit_debit_indicator: "CRDT",
-    status: "BOOK",
-    booking_date: "2025-01-12",
-    transaction_date: "2025-01-12",
-    value_date: "2025-01-12",
-    debtor: { name: "Jan de Vries" },
-    remittance_information: ["Rent share January"],
-  },
-  {
-    entry_reference: "MOCK-TX-005",
-    transaction_amount: { currency: "EUR", amount: "15.80" },
-    credit_debit_indicator: "DBIT",
-    status: "PDNG",
-    booking_date: "2025-01-11",
-    transaction_date: "2025-01-11",
-    value_date: "2025-01-11",
-    creditor: { name: "Thuisbezorgd.nl" },
-    remittance_information: ["Food delivery"],
-  },
-];
+function daysAgo(n: number): string {
+  return new Date(Date.now() - n * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
+}
+
+/** Recent transactions with dates relative to today. */
+function getRecentTransactions() {
+  return [
+    {
+      entry_reference: "MOCK-TX-001",
+      transaction_amount: { currency: "EUR", amount: "1250.00" },
+      credit_debit_indicator: "CRDT",
+      status: "BOOK",
+      booking_date: daysAgo(1),
+      transaction_date: daysAgo(1),
+      value_date: daysAgo(1),
+      debtor: { name: "Employer BV" },
+      remittance_information: ["Salary"],
+    },
+    {
+      entry_reference: "MOCK-TX-002",
+      transaction_amount: { currency: "EUR", amount: "42.50" },
+      credit_debit_indicator: "DBIT",
+      status: "BOOK",
+      booking_date: daysAgo(2),
+      transaction_date: daysAgo(2),
+      value_date: daysAgo(2),
+      creditor: { name: "Albert Heijn" },
+      remittance_information: ["Groceries"],
+    },
+    {
+      entry_reference: "MOCK-TX-003",
+      transaction_amount: { currency: "EUR", amount: "9.99" },
+      credit_debit_indicator: "DBIT",
+      status: "BOOK",
+      booking_date: daysAgo(3),
+      transaction_date: daysAgo(3),
+      value_date: daysAgo(3),
+      creditor: { name: "Netflix" },
+      remittance_information: ["Monthly subscription"],
+    },
+    {
+      entry_reference: "MOCK-TX-004",
+      transaction_amount: { currency: "EUR", amount: "500.00" },
+      credit_debit_indicator: "CRDT",
+      status: "BOOK",
+      booking_date: daysAgo(4),
+      transaction_date: daysAgo(4),
+      value_date: daysAgo(4),
+      debtor: { name: "Jan de Vries" },
+      remittance_information: ["Rent share"],
+    },
+    {
+      entry_reference: "MOCK-TX-005",
+      transaction_amount: { currency: "EUR", amount: "15.80" },
+      credit_debit_indicator: "DBIT",
+      status: "PDNG",
+      booking_date: daysAgo(5),
+      transaction_date: daysAgo(5),
+      value_date: daysAgo(5),
+      creditor: { name: "Thuisbezorgd.nl" },
+      remittance_information: ["Food delivery"],
+    },
+  ];
+}
 
 /** Deterministic mock transaction templates applied per month. */
 const MONTHLY_TEMPLATES = [
-  { ref_suffix: "salary", amount: "3200.00", indicator: "CRDT", debtor: "Employer BV", info: "Monthly salary" },
-  { ref_suffix: "rent", amount: "1100.00", indicator: "DBIT", creditor: "Woning BV", info: "Rent payment" },
-  { ref_suffix: "groceries", amount: "187.50", indicator: "DBIT", creditor: "Albert Heijn", info: "Groceries" },
+  {
+    ref_suffix: "salary",
+    amount: "3200.00",
+    indicator: "CRDT",
+    debtor: "Employer BV",
+    info: "Monthly salary",
+  },
+  {
+    ref_suffix: "rent",
+    amount: "1100.00",
+    indicator: "DBIT",
+    creditor: "Woning BV",
+    info: "Rent payment",
+  },
+  {
+    ref_suffix: "groceries",
+    amount: "187.50",
+    indicator: "DBIT",
+    creditor: "Albert Heijn",
+    info: "Groceries",
+  },
 ];
 
 function pad(n: number): string {
@@ -79,7 +105,9 @@ function generateHistoricalTransactions(dateFrom: string, dateTo: string) {
   const to = new Date(dateTo + "T00:00:00Z");
   const transactions = [];
 
-  const cursor = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), 1));
+  const cursor = new Date(
+    Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), 1),
+  );
   while (cursor <= to) {
     const year = cursor.getUTCFullYear();
     const month = cursor.getUTCMonth() + 1;
@@ -126,9 +154,19 @@ export const onRequestGet: PagesFunction<MockEnv> = async (context) => {
     });
   }
 
+  // If only date_from is provided (refresh flow), filter recent transactions
+  if (dateFrom) {
+    return Response.json({
+      transactions: getRecentTransactions().filter(
+        (tx) => tx.booking_date >= dateFrom,
+      ),
+      continuation_key: null,
+    });
+  }
+
   // Default: return recent fixed transactions
   return Response.json({
-    transactions: RECENT_TRANSACTIONS,
+    transactions: getRecentTransactions(),
     continuation_key: null,
   });
 };

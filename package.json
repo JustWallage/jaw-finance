@@ -15,7 +15,8 @@
     "check:tf": "pnpm run check:tf:fmt && pnpm run check:tf:validate",
     "check": "pnpm run check:ts && pnpm run check:tf:fmt && pnpm run check:tf",
     "test:e2e": "playwright test",
-    "prepare": "husky"
+    "prepare": "husky",
+    "playwright:install": "playwright install --with-deps chromium"
   },
   "keywords": [],
   "author": "",

@@ -1,24 +1,34 @@
 import { ebFetch, type EBEnv } from "../../lib/enable-banking";
-import type { EBTransaction, EBTransactionsResponse } from "../../../db/types";
+import type { EBTransactionsResponse } from "../../../db/types";
 
 export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
   const { env } = context;
   try {
     const connections = await env.DB.prepare(
       "SELECT account_uid FROM bank_connections WHERE valid_until > datetime('now')",
-    )
-      .all<Pick<import("../../../db/types").DBBankConnection, "account_uid">>();
+    ).all<Pick<import("../../../db/types").DBBankConnection, "account_uid">>();
 
     if (!connections.results.length) {
-      return Response.json({ error: "No active bank connections" }, { status: 400 });
+      return Response.json(
+        { error: "No active bank connections" },
+        { status: 400 },
+      );
     }
 
     let totalSynced = 0;
 
     for (const conn of connections.results) {
-      const dateFrom = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .split("T")[0];
+      const latestRow = await env.DB.prepare(
+        "SELECT MAX(booking_date) as latest FROM transactions WHERE account_uid = ?",
+      )
+        .bind(conn.account_uid)
+        .first<{ latest: string | null }>();
+
+      const dateFrom =
+        latestRow?.latest ??
+        new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0];
 
       let continuationKey: string | undefined;
       do {
