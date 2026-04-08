@@ -1,10 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import type { DBBankConnection, DBTransaction } from "../../db/types";
 
+function authHeaders(): HeadersInit {
+  const email = import.meta.env.VITE_DEV_USER_EMAIL;
+  return email ? { "Cf-Access-Authenticated-User-Email": email } : {};
+}
+
 /** Subset of DBBankConnection fields returned by the status API. */
 export type Connection = Pick<
   DBBankConnection,
-  "id" | "account_uid" | "aspsp_name" | "aspsp_country" | "iban" | "valid_until" | "oldest_synced_date"
+  | "id"
+  | "account_uid"
+  | "aspsp_name"
+  | "aspsp_country"
+  | "iban"
+  | "valid_until"
+  | "oldest_synced_date"
 >;
 
 /** Subset of DBTransaction fields returned by the transactions API. */
@@ -28,6 +39,7 @@ export function useBankConnection() {
   const [loading, setLoading] = useState<"connect" | "refresh" | null>(null);
   const [error, setError] = useState("");
   const [importProgress, setImportProgress] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const importAbort = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -45,9 +57,13 @@ export function useBankConnection() {
 
   async function fetchStatus() {
     try {
-      const res = await fetch("/api/bank/status");
-      const data = (await res.json()) as { connections: Connection[] };
+      const res = await fetch("/api/bank/status", { headers: authHeaders() });
+      const data = (await res.json()) as {
+        connections: Connection[];
+        user_email?: string;
+      };
       setConnections(data.connections);
+      if (data.user_email) setUserEmail(data.user_email);
     } catch {
       /* ignore on load */
     }
@@ -55,7 +71,9 @@ export function useBankConnection() {
 
   async function fetchTransactions() {
     try {
-      const res = await fetch("/api/bank/transactions");
+      const res = await fetch("/api/bank/transactions", {
+        headers: authHeaders(),
+      });
       const data = (await res.json()) as { transactions: Transaction[] };
       setTransactions(data.transactions);
     } catch {
@@ -69,7 +87,7 @@ export function useBankConnection() {
     try {
       const res = await fetch("/api/bank/auth", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ aspsp: { name: "bunq", country: "NL" } }),
       });
       const data = (await res.json()) as { url?: string; error?: string };
@@ -89,7 +107,10 @@ export function useBankConnection() {
     setLoading("refresh");
     setError("");
     try {
-      const res = await fetch("/api/bank/refresh", { method: "POST" });
+      const res = await fetch("/api/bank/refresh", {
+        method: "POST",
+        headers: authHeaders(),
+      });
       const data = (await res.json()) as { synced?: number; error?: string };
       if (!res.ok) {
         setError(data.error ?? "Refresh failed");
@@ -113,7 +134,13 @@ export function useBankConnection() {
     if (!activeConnection) return;
 
     const now = new Date();
-    const targetDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - months, now.getUTCDate()));
+    const targetDate = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth() - months,
+        now.getUTCDate(),
+      ),
+    );
 
     // Already synced far enough back — nothing to do
     if (
@@ -138,7 +165,9 @@ export function useBankConnection() {
 
         const chunkEnd = new Date(cursor);
         cursor.setUTCMonth(cursor.getUTCMonth() - 1);
-        const chunkStart = new Date(Math.max(cursor.getTime(), targetDate.getTime()));
+        const chunkStart = new Date(
+          Math.max(cursor.getTime(), targetDate.getTime()),
+        );
 
         const dateFrom = chunkStart.toISOString().split("T")[0];
         const dateTo = chunkEnd.toISOString().split("T")[0];
@@ -151,7 +180,7 @@ export function useBankConnection() {
 
         const res = await fetch("/api/bank/import", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...authHeaders() },
           body: JSON.stringify({
             account_uid: activeConnection.account_uid,
             date_from: dateFrom,
@@ -189,6 +218,7 @@ export function useBankConnection() {
     activeConnection,
     expiringSoon,
     importProgress,
+    userEmail,
     handleConnect,
     handleRefresh,
     handleImportHistory,

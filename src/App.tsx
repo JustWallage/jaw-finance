@@ -1,4 +1,4 @@
-import { Loader2, RefreshCw, Link as LinkIcon, AlertTriangle, History } from "lucide-react";
+import { Loader2, RefreshCw, Link as LinkIcon, AlertTriangle, History, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -32,6 +32,7 @@ export default function App() {
     activeConnection,
     expiringSoon,
     importProgress,
+    userEmail,
     handleConnect,
     handleRefresh,
     handleImportHistory,
@@ -40,6 +41,14 @@ export default function App() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-start bg-background p-8 text-foreground dark">
       <div className="w-full max-w-4xl space-y-6">
+        {userEmail && (
+          <div className="flex justify-end">
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-3 py-1 text-sm text-muted-foreground">
+              <User className="h-3.5 w-3.5" />
+              {userEmail}
+            </span>
+          </div>
+        )}
         <div className="text-center">
           <h1 className="text-4xl font-bold tracking-tight">jaw-finance</h1>
           <p className="mt-2 text-muted-foreground">Personal finance dashboard.</p>

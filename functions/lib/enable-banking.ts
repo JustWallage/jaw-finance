@@ -66,3 +66,10 @@ export async function ebFetch(
   const baseUrl = env.ENABLE_BANKING_API_URL;
   return fetch(`${baseUrl}${path}`, { ...options, headers });
 }
+
+/** Extract authenticated user email from Cloudflare Access header. */
+export function getUserEmail(request: Request): string {
+  const email = request.headers.get("Cf-Access-Authenticated-User-Email");
+  if (!email) throw new Error("Missing user identity");
+  return email;
+}

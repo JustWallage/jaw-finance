@@ -1,5 +1,5 @@
-import { ebFetch, type EBEnv } from "../../lib/enable-banking";
-import type { EBTransaction, EBTransactionsResponse } from "../../../db/types";
+import { ebFetch, getUserEmail, type EBEnv } from "../../lib/enable-banking";
+import type { EBTransactionsResponse } from "../../../db/types";
 
 interface ImportRequest {
   account_uid: string;
@@ -19,10 +19,11 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
       );
     }
 
+    const userEmail = getUserEmail(context.request);
     const connection = await env.DB.prepare(
-      "SELECT account_uid FROM bank_connections WHERE account_uid = ? AND valid_until > datetime('now')",
+      "SELECT account_uid FROM bank_connections WHERE account_uid = ? AND user_email = ? AND valid_until > datetime('now')",
     )
-      .bind(body.account_uid)
+      .bind(body.account_uid, userEmail)
       .first<{ account_uid: string }>();
 
     if (!connection) {
@@ -57,8 +58,8 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
             : tx.creditor?.name;
 
         await env.DB.prepare(
-          `INSERT INTO transactions (entry_reference, account_uid, amount, currency, credit_debit, status, booking_date, transaction_date, counterparty_name, remittance_info)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `INSERT INTO transactions (entry_reference, account_uid, amount, currency, credit_debit, status, booking_date, transaction_date, counterparty_name, remittance_info, user_email)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(entry_reference, account_uid) DO NOTHING`,
         )
           .bind(
@@ -72,6 +73,7 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
             tx.transaction_date ?? null,
             counterparty ?? null,
             tx.remittance_information?.join("; ") ?? null,
+            userEmail,
           )
           .run();
         totalSynced++;

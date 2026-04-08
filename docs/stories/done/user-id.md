@@ -1,0 +1,1 @@
+Introduce a userid that is stored with every transaction. This must be based on the logged in user. Is it possible to fetch the user's email from the cloudflare zero trust system that I've setup? And how would I handle this in the local development flow? Can I perhaps add a method to simulate what user I'm logged in with?

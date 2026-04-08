@@ -10,6 +10,7 @@ export interface DBBankConnection {
   iban: string | null;
   valid_until: string;
   oldest_synced_date: string | null;
+  user_email: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -27,6 +28,7 @@ export interface DBTransaction {
   transaction_date: string | null;
   counterparty_name: string | null;
   remittance_info: string | null;
+  user_email: string | null;
   created_at: string;
 }
 

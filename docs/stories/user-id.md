@@ -1,1 +1,0 @@
-Introduce a userid that is stored with every transaction. This must be based on the logged in user. Is it possible to fetch the user's email from the cloudflare zero trust system that I've setup?
