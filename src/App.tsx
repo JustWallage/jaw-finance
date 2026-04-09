@@ -1,4 +1,4 @@
-import { Loader2, RefreshCw, Link as LinkIcon, AlertTriangle, History, User, TrendingUp, TrendingDown } from "lucide-react";
+import { Loader2, RefreshCw, Link as LinkIcon, AlertTriangle, History, User, TrendingUp, TrendingDown, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/dialog";
 import { useBankConnection } from "./hooks/useBankConnection";
 import { useIncomeAnalytics } from "./hooks/useIncomeAnalytics";
+import { useLocalStorage } from "./hooks/useLocalStorage";
 
 export default function App() {
   const {
@@ -70,17 +71,49 @@ export default function App() {
   const { currentMonthIncome, currentMonthExpense, pastMonths, refresh: refreshAnalytics } =
     useIncomeAnalytics(selectedAccountUid);
 
+  const [hideIncome, setHideIncome] = useLocalStorage("jaw-finance-hide-income", false);
+
   const formatPeriod = (period: string) => {
     const [year, month] = period.split("-");
     const date = new Date(Number(year), Number(month) - 1);
     return date.toLocaleString("default", { month: "long", year: "numeric" });
   };
 
+  const displayedTransactions = transactions;
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-start bg-background p-8 text-foreground dark">
       <div className="w-full max-w-4xl space-y-6">
-        <div className="flex items-start justify-between">
-          <div>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold tracking-tight">JAW Finance</h1>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setHideIncome(!hideIncome)}
+              data-testid="toggle-income"
+              title={hideIncome ? "Show income" : "Hide income"}
+            >
+              {hideIncome ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </Button>
+            {activeConnection && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={async () => {
+                  await handleRefresh();
+                  refreshAnalytics();
+                }}
+                disabled={loading !== null || importProgress !== null}
+                data-testid="refresh-button"
+              >
+                {loading === "refresh" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+              </Button>
+            )}
             {connections.length > 0 && (
               <Select
                 value={selectedAccountUid}
@@ -108,30 +141,6 @@ export default function App() {
                   ))}
                 </SelectContent>
               </Select>
-            )}
-          </div>
-          <div className="text-center">
-            <h1 className="text-4xl font-bold tracking-tight">jaw-finance</h1>
-            <p className="mt-2 text-muted-foreground">Personal finance dashboard.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            {activeConnection && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={async () => {
-                  await handleRefresh();
-                  refreshAnalytics();
-                }}
-                disabled={loading !== null || importProgress !== null}
-                data-testid="refresh-button"
-              >
-                {loading === "refresh" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
-              </Button>
             )}
             <Dialog>
               <DialogTrigger
@@ -301,7 +310,7 @@ export default function App() {
               <CardContent>
                 <div className="mb-4">
                   <p className="text-sm text-muted-foreground">This month</p>
-                  <p className="text-3xl font-bold text-green-500" data-testid="current-month-income">
+                  <p className={`text-3xl font-bold text-green-500 ${hideIncome ? "blur-md select-none" : ""}`} data-testid="current-month-income">
                     +{currentMonthIncome.toFixed(2)} EUR
                   </p>
                 </div>
@@ -315,7 +324,7 @@ export default function App() {
                         data-testid={`income-month-${m.period}`}
                       >
                         <span className="text-muted-foreground">{formatPeriod(m.period)}</span>
-                        <span className="font-medium text-green-500">
+                        <span className={`font-medium text-green-500 ${hideIncome ? "blur-md select-none" : ""}`}>
                           {m.income.toFixed(2)}
                         </span>
                       </div>
@@ -361,7 +370,7 @@ export default function App() {
           </div>
         )}
 
-        {transactions.length > 0 && (
+        {displayedTransactions.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle>Transactions</CardTitle>
@@ -378,7 +387,7 @@ export default function App() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {transactions.map((tx) => (
+                  {displayedTransactions.map((tx) => (
                     <TableRow key={tx.id}>
                       <TableCell className="whitespace-nowrap">
                         {tx.booking_date ?? "—"}
@@ -392,7 +401,7 @@ export default function App() {
                           tx.credit_debit === "CRDT"
                             ? "text-green-500"
                             : "text-red-500"
-                        }`}
+                        } ${hideIncome && tx.credit_debit === "CRDT" ? "blur-md select-none" : ""}`}
                       >
                         {tx.credit_debit === "DBIT" ? "-" : "+"}
                         {tx.amount} {tx.currency}

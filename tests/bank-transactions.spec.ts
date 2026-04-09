@@ -27,7 +27,7 @@ test.describe("Bank connection flow via mock", () => {
     // Should redirect back to app with connected=true
     await page.waitForURL("**/?connected=true");
     // App clears the query param on load
-    await expect(page.locator("h1")).toContainText("jaw-finance");
+    await expect(page.locator("h1")).toContainText("JAW Finance");
 
     // Now refresh transactions
     const refreshBtn = page.getByTestId("refresh-button");
