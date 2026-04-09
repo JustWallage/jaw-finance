@@ -38,7 +38,7 @@ Task one: you must keep this document up to date, but only with the broad contex
   - User identity is read from the `Cf-Access-Authenticated-User-Email` header (set automatically by Cloudflare Access in production).
   - All DB records (`bank_connections`, `transactions`) are scoped to `user_email`.
   - In local dev, the frontend sends the header via `VITE_DEV_USER_EMAIL` (in `.env`). The callback retrieves user identity from the OAuth state parameter.
-  * In E2E tests, Playwright sends `Cf-Access-Authenticated-User-Email` via `extraHTTPHeaders` locally. In CI, it authenticates via CF Access Service Token (`CF-Access-Client-Id` / `CF-Access-Client-Secret`) and sends `X-Test-User-Email` (accepted only in staging since service tokens don't populate the CF Access email header).
+  * In E2E tests, Playwright sends `Cf-Access-Authenticated-User-Email` via `extraHTTPHeaders` locally. In CI, it sends `X-Test-User-Email` (accepted only in staging since service tokens don't populate the CF Access email header).
 - **Banking Integration:** Enable Banking (Open Banking / PSD2) via REST API.
   - JWT authentication: RS256 with `ENABLE_BANKING_APP_ID` as `kid` and `ENABLE_BANKING_SECRET` (PEM private key) for signing.
   - OAuth-style redirect flow: `POST /auth` → bank redirect → callback with `code` → `POST /sessions`.

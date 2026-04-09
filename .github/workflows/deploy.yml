@@ -69,10 +69,6 @@ jobs:
         run: |
           echo "STAGING_DB_ID=$(terraform output -raw d1_database_id_staging)" >> "$GITHUB_ENV"
           echo "PROD_DB_ID=$(terraform output -raw d1_database_id_prod)" >> "$GITHUB_ENV"
-          echo "CF_ACCESS_CLIENT_ID=$(terraform output -raw e2e_service_token_client_id)" >> "$GITHUB_ENV"
-          CF_ACCESS_CLIENT_SECRET="$(terraform output -raw e2e_service_token_client_secret)"
-          echo "::add-mask::$CF_ACCESS_CLIENT_SECRET"
-          echo "CF_ACCESS_CLIENT_SECRET=$CF_ACCESS_CLIENT_SECRET" >> "$GITHUB_ENV"
 
       - name: Generate wrangler.toml
         run: |
@@ -107,6 +103,16 @@ jobs:
 
       - name: Run E2E tests against Staging
         run: pnpm exec playwright test
+
+      - name: Upload Playwright Report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
 
       - name: Run Production DB Migrations
         run: pnpm exec wrangler d1 migrations apply DB --remote --env production
