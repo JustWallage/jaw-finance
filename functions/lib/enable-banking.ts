@@ -32,7 +32,10 @@ async function importPrivateKey(pem: string): Promise<CryptoKey> {
   );
 }
 
-async function createJWT(appId: string, privateKeyPem: string): Promise<string> {
+async function createJWT(
+  appId: string,
+  privateKeyPem: string,
+): Promise<string> {
   const header = base64urlEncode(
     JSON.stringify({ typ: "JWT", alg: "RS256", kid: appId }),
   );
@@ -56,7 +59,10 @@ export async function ebFetch(
   env: EBEnv,
   options: RequestInit = {},
 ): Promise<Response> {
-  const jwt = await createJWT(env.ENABLE_BANKING_APP_ID, env.ENABLE_BANKING_SECRET);
+  const jwt = await createJWT(
+    env.ENABLE_BANKING_APP_ID,
+    env.ENABLE_BANKING_SECRET,
+  );
   const headers = new Headers(options.headers);
   headers.set("Authorization", `Bearer ${jwt}`);
   if (options.body && !headers.has("Content-Type")) {

@@ -58,6 +58,7 @@ export function useBankConnection() {
   async function fetchStatus() {
     try {
       const res = await fetch("/api/bank/status", { headers: authHeaders() });
+      if (!res.ok) return;
       const data = (await res.json()) as {
         connections: Connection[];
         user_email?: string;
@@ -75,6 +76,7 @@ export function useBankConnection() {
         ? `/api/bank/transactions?since=${since}`
         : "/api/bank/transactions";
       const res = await fetch(url, { headers: authHeaders() });
+      if (!res.ok) return;
       const data = (await res.json()) as { transactions: Transaction[] };
       if (since) {
         setTransactions((prev) => {
