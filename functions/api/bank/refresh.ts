@@ -4,7 +4,7 @@ import type { EBTransactionsResponse } from "../../../db/types";
 export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
   const { env } = context;
   try {
-    const userEmail = getUserEmail(context.request);
+    const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
     const connections = await env.DB.prepare(
       "SELECT account_uid FROM bank_connections WHERE user_email = ? AND valid_until > datetime('now')",
     )

@@ -7,7 +7,7 @@ interface AuthRequest {
 export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
   const { env } = context;
   try {
-    const userEmail = getUserEmail(context.request);
+    const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
     const body = (await context.request.json()) as AuthRequest;
     const validUntil = new Date(
       Date.now() + 90 * 24 * 60 * 60 * 1000,

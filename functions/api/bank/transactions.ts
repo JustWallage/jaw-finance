@@ -4,7 +4,7 @@ import type { DBTransaction } from "../../../db/types";
 export const onRequestGet: PagesFunction<EBEnv> = async (context) => {
   const { env } = context;
   try {
-    const userEmail = getUserEmail(context.request);
+    const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
     const url = new URL(context.request.url);
     const since = url.searchParams.get("since");
 

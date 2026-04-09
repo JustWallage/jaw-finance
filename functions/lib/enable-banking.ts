@@ -4,6 +4,7 @@ export interface EBEnv {
   ENABLE_BANKING_SECRET: string;
   ENABLE_BANKING_API_URL: string;
   ENABLE_BANKING_CALLBACK_URL: string;
+  ENVIRONMENT?: string;
 }
 
 function base64url(buf: ArrayBuffer): string {
@@ -73,9 +74,15 @@ export async function ebFetch(
   return fetch(`${baseUrl}${path}`, { ...options, headers });
 }
 
-/** Extract authenticated user email from Cloudflare Access header. */
-export function getUserEmail(request: Request): string {
-  const email = request.headers.get("Cf-Access-Authenticated-User-Email");
+/** Extract authenticated user email from Cloudflare Access header.
+ *  In staging, also accepts X-Test-User-Email (CF Access service tokens
+ *  don't populate the email header). */
+export function getUserEmail(request: Request, environment?: string): string {
+  const email =
+    request.headers.get("Cf-Access-Authenticated-User-Email") ??
+    (environment === "staging"
+      ? request.headers.get("X-Test-User-Email")
+      : null);
   if (!email) throw new Error("Missing user identity");
   return email;
 }

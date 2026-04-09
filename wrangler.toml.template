@@ -9,6 +9,7 @@ database_id = "local"
 migrations_dir = "db/migrations"
 
 [env.preview.vars]
+ENVIRONMENT = "staging"
 ENABLE_BANKING_API_URL = "https://staging.jaw-finance.pages.dev/mock-enable-banking"
 ENABLE_BANKING_CALLBACK_URL = "https://staging.jaw-finance.pages.dev/api/bank/callback"
 

@@ -19,7 +19,7 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
       );
     }
 
-    const userEmail = getUserEmail(context.request);
+    const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
     const connection = await env.DB.prepare(
       "SELECT account_uid FROM bank_connections WHERE account_uid = ? AND user_email = ? AND valid_until > datetime('now')",
     )

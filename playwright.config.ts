@@ -4,6 +4,7 @@ const extraHTTPHeaders: Record<string, string> = process.env.CI
   ? {
       "CF-Access-Client-Id": process.env.CF_ACCESS_CLIENT_ID ?? "",
       "CF-Access-Client-Secret": process.env.CF_ACCESS_CLIENT_SECRET ?? "",
+      "X-Test-User-Email": "test@jaw-finance.local",
     }
   : {
       "Cf-Access-Authenticated-User-Email": "test@jaw-finance.local",

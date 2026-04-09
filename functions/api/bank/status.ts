@@ -4,7 +4,7 @@ import type { DBBankConnection } from "../../../db/types";
 export const onRequestGet: PagesFunction<EBEnv> = async (context) => {
   const { env } = context;
   try {
-    const userEmail = getUserEmail(context.request);
+    const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
     const result = await env.DB.prepare(
       "SELECT * FROM bank_connections WHERE user_email = ? ORDER BY created_at DESC",
     )
