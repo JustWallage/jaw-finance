@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { DBBankConnection, DBTransaction } from "../../db/types";
+import { useLocalStorage } from "./useLocalStorage";
 
 function authHeaders(): HeadersInit {
   const email = import.meta.env.VITE_DEV_USER_EMAIL;
@@ -22,6 +23,7 @@ export type Connection = Pick<
 export type Transaction = Pick<
   DBTransaction,
   | "id"
+  | "account_uid"
   | "amount"
   | "currency"
   | "credit_debit"
@@ -40,6 +42,10 @@ export function useBankConnection() {
   const [error, setError] = useState("");
   const [importProgress, setImportProgress] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [selectedAccountUid, setSelectedAccountUid] = useLocalStorage<string>(
+    "jaw-finance-selected-account",
+    "",
+  );
   const importAbort = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -52,7 +58,6 @@ export function useBankConnection() {
       window.history.replaceState({}, "", "/");
     }
     fetchStatus();
-    fetchTransactions();
   }, []);
 
   async function fetchStatus() {
@@ -70,10 +75,41 @@ export function useBankConnection() {
     }
   }
 
-  async function fetchTransactions(since?: string) {
+  // Resolve selected account when connections change, then fetch transactions
+  useEffect(() => {
+    if (connections.length === 0) return;
+    const valid =
+      selectedAccountUid === "all" ||
+      connections.some((c) => c.account_uid === selectedAccountUid);
+    if (!valid) {
+      // This triggers the selectedAccountUid effect which will fetch
+      setSelectedAccountUid(connections[0].account_uid);
+    } else {
+      fetchTransactions(
+        undefined,
+        selectedAccountUid || connections[0].account_uid,
+      );
+    }
+  }, [connections]);
+
+  // Re-fetch transactions when selected account changes (user switching)
+  const connectionsLoaded = connections.length > 0;
+  useEffect(() => {
+    if (!connectionsLoaded || !selectedAccountUid) return;
+    fetchTransactions(undefined, selectedAccountUid);
+  }, [selectedAccountUid]);
+
+  async function fetchTransactions(since?: string, accountUid?: string) {
     try {
-      const url = since
-        ? `/api/bank/transactions?since=${since}`
+      const params = new URLSearchParams();
+      if (since) params.set("since", since);
+      const effectiveAccount = accountUid ?? selectedAccountUid;
+      if (effectiveAccount && effectiveAccount !== "all") {
+        params.set("account_uid", effectiveAccount);
+      }
+      const qs = params.toString();
+      const url = qs
+        ? `/api/bank/transactions?${qs}`
         : "/api/bank/transactions";
       const res = await fetch(url, { headers: authHeaders() });
       if (!res.ok) return;
@@ -129,7 +165,7 @@ export function useBankConnection() {
       if (!res.ok) {
         setError(data.error ?? "Refresh failed");
       }
-      await fetchTransactions(latestDate);
+      await fetchTransactions(latestDate, selectedAccountUid);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");
     } finally {
@@ -213,7 +249,7 @@ export function useBankConnection() {
       }
 
       await fetchStatus();
-      await fetchTransactions();
+      await fetchTransactions(undefined, selectedAccountUid);
     } catch (err) {
       if (!(err instanceof DOMException && err.name === "AbortError")) {
         setError(err instanceof Error ? err.message : "Import failed");
@@ -233,6 +269,8 @@ export function useBankConnection() {
     expiringSoon,
     importProgress,
     userEmail,
+    selectedAccountUid,
+    setSelectedAccountUid,
     handleConnect,
     handleRefresh,
     handleImportHistory,

@@ -1,0 +1,161 @@
+import { test, expect, type Page } from "@playwright/test";
+
+test.describe("Multi-account support", () => {
+  test.beforeEach(async ({ request }) => {
+    await request.post("/mock-enable-banking/reset");
+  });
+
+  async function connectAndRefresh(page: Page) {
+    await page.goto("/");
+    await page.getByTestId("connect-button").click();
+    await page.waitForURL("**/mock-enable-banking/consent**");
+    await page.getByTestId("simulate-success").click();
+    await page.waitForURL("**/?connected=true");
+
+    const refreshBtn = page.getByTestId("refresh-button");
+    await expect(refreshBtn).toBeVisible({ timeout: 5_000 });
+    await refreshBtn.click();
+
+    const table = page.getByTestId("transactions-table");
+    await expect(table).toBeVisible({ timeout: 10_000 });
+    return table;
+  }
+
+  test("mock API returns multiple accounts after connection", async ({
+    page,
+    request,
+  }) => {
+    await page.goto("/");
+    await page.getByTestId("connect-button").click();
+    await page.waitForURL("**/mock-enable-banking/consent**");
+    await page.getByTestId("simulate-success").click();
+    await page.waitForURL("**/?connected=true");
+
+    const res = await request.get("/api/bank/status");
+    const data = await res.json();
+    expect(data.connections).toHaveLength(2);
+    expect(data.connections[0].iban).toBe("NL00MOCK0123456789");
+    expect(data.connections[1].iban).toBeNull();
+  });
+
+  test("account switcher defaults to first account on fresh load", async ({
+    page,
+  }) => {
+    await connectAndRefresh(page);
+
+    const switcher = page.getByTestId("account-switcher");
+    await expect(switcher).toBeVisible();
+    // First account has IBAN, so it should display the IBAN
+    await expect(switcher).toContainText("NL00MOCK0123456789");
+  });
+
+  test("account switcher displays IBAN and falls back to account_uid", async ({
+    page,
+  }) => {
+    await connectAndRefresh(page);
+
+    // Open the account switcher
+    const switcher = page.getByTestId("account-switcher");
+    await switcher.click();
+
+    // Check that "All Accounts" option is visible
+    await expect(page.getByTestId("account-option-all")).toBeVisible();
+
+    // First account should show IBAN
+    const options = page.locator("[data-slot='select-item']");
+    // "All Accounts" + 2 accounts = 3 items
+    await expect(options).toHaveCount(3);
+
+    // The IBAN account should display the IBAN
+    await expect(options.nth(1)).toContainText("NL00MOCK0123456789");
+
+    // The non-IBAN account should display the account_uid
+    await expect(options.nth(2)).toContainText("mock-account-uid-");
+    // It should NOT contain an IBAN pattern
+    const savingsText = await options.nth(2).textContent();
+    expect(savingsText).toContain("-savings");
+  });
+
+  test("selecting an account filters the transaction list", async ({
+    page,
+  }) => {
+    await connectAndRefresh(page);
+
+    const table = page.getByTestId("transactions-table");
+
+    // Default: first account (current account with IBAN)
+    // Should show current account transactions (Employer BV, Albert Heijn, etc.)
+    await expect(table).toContainText("Employer BV");
+    const firstAccountRows = await table.locator("tbody tr").count();
+    expect(firstAccountRows).toBe(5);
+
+    // Switch to the savings account (second option)
+    const switcher = page.getByTestId("account-switcher");
+    await switcher.click();
+    const options = page.locator("[data-slot='select-item']");
+    await options.nth(2).click();
+
+    // Wait for new transactions to load
+    await expect(table).toContainText("Savings transfer", { timeout: 10_000 });
+    const savingsRows = await table.locator("tbody tr").count();
+    expect(savingsRows).toBe(3);
+
+    // Should NOT contain current account transactions
+    await expect(table).not.toContainText("Employer BV");
+  });
+
+  test("selecting All Accounts shows all transactions", async ({ page }) => {
+    await connectAndRefresh(page);
+
+    const table = page.getByTestId("transactions-table");
+
+    // Get count for first account
+    const firstAccountRows = await table.locator("tbody tr").count();
+    expect(firstAccountRows).toBe(5);
+
+    // Switch to All Accounts
+    const switcher = page.getByTestId("account-switcher");
+    await switcher.click();
+    await page.getByTestId("account-option-all").click();
+
+    // Wait for all transactions to load
+    await expect(table).toContainText("Savings transfer", { timeout: 10_000 });
+    await expect(table).toContainText("Employer BV");
+
+    // Should have both current (5) and savings (3) transactions
+    const allRows = await table.locator("tbody tr").count();
+    expect(allRows).toBe(8);
+  });
+
+  test("refreshing page preserves selected account via local storage", async ({
+    page,
+  }) => {
+    await connectAndRefresh(page);
+
+    const table = page.getByTestId("transactions-table");
+
+    // Switch to savings account
+    const switcher = page.getByTestId("account-switcher");
+    await switcher.click();
+    const options = page.locator("[data-slot='select-item']");
+    await options.nth(2).click();
+
+    // Wait for savings transactions
+    await expect(table).toContainText("Savings transfer", { timeout: 10_000 });
+
+    // Reload page
+    await page.reload();
+
+    // Account switcher should still show savings account (not IBAN)
+    const switcherAfterReload = page.getByTestId("account-switcher");
+    await expect(switcherAfterReload).toBeVisible({ timeout: 5_000 });
+    // Should show the savings account uid (not the IBAN)
+    await expect(switcherAfterReload).toContainText("-savings");
+
+    // Transactions should be savings account transactions
+    const tableAfterReload = page.getByTestId("transactions-table");
+    await expect(tableAfterReload).toBeVisible({ timeout: 10_000 });
+    await expect(tableAfterReload).toContainText("Savings transfer");
+    await expect(tableAfterReload).not.toContainText("Employer BV");
+  });
+});

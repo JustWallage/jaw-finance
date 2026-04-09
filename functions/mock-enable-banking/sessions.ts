@@ -50,38 +50,63 @@ export const onRequestPost: PagesFunction<MockEnv> = async (context) => {
         }
       })()
     : "unknown";
-  const accountUid = `mock-account-uid-${userPrefix}`;
-  const iban = "NL00MOCK0123456789";
+  const accountUid1 = `mock-account-uid-${userPrefix}`;
+  const iban1 = "NL00MOCK0123456789";
+  const accountUid2 = `mock-account-uid-${userPrefix}-savings`;
 
-  await env.DB.prepare(
-    `INSERT INTO mock_enable_banking_sessions (session_id, account_uid, aspsp_name, aspsp_country, iban, valid_until)
-     VALUES (?, ?, ?, ?, ?, ?)
-     ON CONFLICT(session_id) DO UPDATE SET
-       valid_until = excluded.valid_until,
-       aspsp_name = excluded.aspsp_name,
-       aspsp_country = excluded.aspsp_country`,
-  )
-    .bind(
+  await env.DB.batch([
+    env.DB.prepare(
+      `INSERT INTO mock_enable_banking_sessions (session_id, account_uid, aspsp_name, aspsp_country, iban, valid_until)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(session_id, account_uid) DO UPDATE SET
+         valid_until = excluded.valid_until,
+         aspsp_name = excluded.aspsp_name,
+         aspsp_country = excluded.aspsp_country`,
+    ).bind(
       sessionId,
-      accountUid,
+      accountUid1,
       row.aspsp_name,
       row.aspsp_country,
-      iban,
+      iban1,
       row.valid_until,
-    )
-    .run();
+    ),
+    env.DB.prepare(
+      `INSERT INTO mock_enable_banking_sessions (session_id, account_uid, aspsp_name, aspsp_country, iban, valid_until)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(session_id, account_uid) DO UPDATE SET
+         valid_until = excluded.valid_until,
+         aspsp_name = excluded.aspsp_name,
+         aspsp_country = excluded.aspsp_country`,
+    ).bind(
+      sessionId,
+      accountUid2,
+      row.aspsp_name,
+      row.aspsp_country,
+      null,
+      row.valid_until,
+    ),
+  ]);
 
   return Response.json({
     session_id: sessionId,
     accounts: [
       {
-        uid: accountUid,
-        account_id: { iban },
+        uid: accountUid1,
+        account_id: { iban: iban1 },
         name: "Mock Current Account",
         currency: "EUR",
         cash_account_type: "CACC",
         identification_hash: "mock-hash-1",
         identification_hashes: ["mock-hash-1"],
+      },
+      {
+        uid: accountUid2,
+        account_id: {},
+        name: "Mock Savings Account",
+        currency: "EUR",
+        cash_account_type: "SVGS",
+        identification_hash: "mock-hash-2",
+        identification_hashes: ["mock-hash-2"],
       },
     ],
     aspsp: { name: row.aspsp_name, country: row.aspsp_country },

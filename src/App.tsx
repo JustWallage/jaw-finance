@@ -22,10 +22,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useBankConnection } from "./hooks/useBankConnection";
 
 export default function App() {
   const {
+    connections,
     transactions,
     loading,
     error,
@@ -33,16 +41,57 @@ export default function App() {
     expiringSoon,
     importProgress,
     userEmail,
+    selectedAccountUid,
+    setSelectedAccountUid,
     handleConnect,
     handleRefresh,
     handleImportHistory,
   } = useBankConnection();
 
+  const accountLabel = (uid: string) => {
+    if (uid === "all") return "All Accounts";
+    const c = connections.find((conn) => conn.account_uid === uid);
+    return c?.iban ?? uid;
+  };
+
+  const selectedConnection = connections.find(
+    (c) => c.account_uid === selectedAccountUid,
+  );
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-start bg-background p-8 text-foreground dark">
       <div className="w-full max-w-4xl space-y-6">
         <div className="flex items-start justify-between">
-          <div />
+          <div>
+            {connections.length > 0 && (
+              <Select
+                value={selectedAccountUid}
+                onValueChange={(value) => {
+                  if (value) setSelectedAccountUid(value);
+                }}
+              >
+                <SelectTrigger data-testid="account-switcher">
+                  <SelectValue>
+                    {accountLabel(selectedAccountUid)}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" data-testid="account-option-all">
+                    All Accounts
+                  </SelectItem>
+                  {connections.map((c) => (
+                    <SelectItem
+                      key={c.account_uid}
+                      value={c.account_uid}
+                      data-testid={`account-option-${c.account_uid}`}
+                    >
+                      {c.iban ?? c.account_uid}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
           <div className="text-center">
             <h1 className="text-4xl font-bold tracking-tight">jaw-finance</h1>
             <p className="mt-2 text-muted-foreground">Personal finance dashboard.</p>
@@ -172,19 +221,19 @@ export default function App() {
           </div>
         )}
 
-        {activeConnection && (
+        {selectedConnection && (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                Connected to {activeConnection.aspsp_name}
-                <Badge variant="secondary">{activeConnection.aspsp_country}</Badge>
+                Connected to {selectedConnection.aspsp_name}
+                <Badge variant="secondary">{selectedConnection.aspsp_country}</Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
-              {activeConnection.iban && <p>IBAN: {activeConnection.iban}</p>}
+              {selectedConnection.iban && <p>IBAN: {selectedConnection.iban}</p>}
               <p>
                 Valid until:{" "}
-                {new Date(activeConnection.valid_until).toLocaleDateString()}
+                {new Date(selectedConnection.valid_until).toLocaleDateString()}
               </p>
             </CardContent>
           </Card>

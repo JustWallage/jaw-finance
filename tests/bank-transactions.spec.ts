@@ -203,18 +203,19 @@ test.describe("Bank connection flow via mock", () => {
     await page.getByTestId("simulate-success").click();
     await page.waitForURL("**/?connected=true");
 
-    // First refresh: no transactions in DB, falls back to 90 days ago → all 5 recent mock txns
+    // First refresh: no transactions in DB, falls back to 90 days ago →
+    // current account: 5 recent txns + savings account: 3 recent txns = 8
     const refreshBtn = page.getByTestId("refresh-button");
     await expect(refreshBtn).toBeVisible({ timeout: 5_000 });
 
     const firstRefresh = await request.post("/api/bank/refresh");
     const firstBody = await firstRefresh.json();
-    expect(firstBody.synced).toBe(5);
+    expect(firstBody.synced).toBe(8);
 
-    // Second refresh: latest booking_date in DB is yesterday (daysAgo(1)) →
-    // mock filters to booking_date >= that date → only 1 transaction
+    // Second refresh: latest booking_date per account is yesterday (daysAgo(1)) →
+    // current account: 1 txn (daysAgo(1)) + savings account: 1 txn (daysAgo(1)) = 2
     const secondRefresh = await request.post("/api/bank/refresh");
     const secondBody = await secondRefresh.json();
-    expect(secondBody.synced).toBe(1);
+    expect(secondBody.synced).toBe(2);
   });
 });

@@ -7,16 +7,27 @@ export const onRequestGet: PagesFunction<EBEnv> = async (context) => {
     const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
     const url = new URL(context.request.url);
     const since = url.searchParams.get("since");
+    const accountUid = url.searchParams.get("account_uid");
 
-    const query = since
-      ? "SELECT * FROM transactions WHERE user_email = ? AND booking_date >= ? ORDER BY booking_date DESC, id DESC LIMIT 500"
-      : "SELECT * FROM transactions WHERE user_email = ? ORDER BY booking_date DESC, id DESC LIMIT 500";
+    const conditions = ["user_email = ?"];
+    const bindings: string[] = [userEmail];
 
-    const stmt = since
-      ? env.DB.prepare(query).bind(userEmail, since)
-      : env.DB.prepare(query).bind(userEmail);
+    if (since) {
+      conditions.push("booking_date >= ?");
+      bindings.push(since);
+    }
 
-    const result = await stmt.all<DBTransaction>();
+    if (accountUid) {
+      conditions.push("account_uid = ?");
+      bindings.push(accountUid);
+    }
+
+    const where = conditions.join(" AND ");
+    const query = `SELECT * FROM transactions WHERE ${where} ORDER BY booking_date DESC, id DESC LIMIT 500`;
+
+    const result = await env.DB.prepare(query)
+      .bind(...bindings)
+      .all<DBTransaction>();
 
     return Response.json({ transactions: result.results });
   } catch (err) {
