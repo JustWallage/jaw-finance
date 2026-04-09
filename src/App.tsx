@@ -29,6 +29,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useBankConnection } from "./hooks/useBankConnection";
 import { useIncomeAnalytics } from "./hooks/useIncomeAnalytics";
 
@@ -106,13 +114,125 @@ export default function App() {
             <h1 className="text-4xl font-bold tracking-tight">jaw-finance</h1>
             <p className="mt-2 text-muted-foreground">Personal finance dashboard.</p>
           </div>
-          <div>
-            {userEmail && (
-              <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-3 py-1 text-sm text-muted-foreground">
-                <User className="h-3.5 w-3.5" />
-                {userEmail}
-              </span>
+          <div className="flex items-center gap-2">
+            {activeConnection && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={async () => {
+                  await handleRefresh();
+                  refreshAnalytics();
+                }}
+                disabled={loading !== null || importProgress !== null}
+                data-testid="refresh-button"
+              >
+                {loading === "refresh" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+              </Button>
             )}
+            <Dialog>
+              <DialogTrigger
+                render={
+                  <button
+                    className="inline-flex items-center gap-1.5 rounded-md bg-muted px-3 py-1 text-sm text-muted-foreground hover:bg-muted/80 cursor-pointer"
+                    data-testid="user-menu-trigger"
+                  >
+                    <User className="h-3.5 w-3.5" />
+                    {userEmail ?? "Account"}
+                  </button>
+                }
+              />
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Bank Connection</DialogTitle>
+                  <DialogDescription>
+                    Manage your bank connections and import history.
+                  </DialogDescription>
+                </DialogHeader>
+
+                {selectedConnection && (
+                  <div className="text-sm text-muted-foreground space-y-1">
+                    <p className="font-medium text-foreground">
+                      Connected to {selectedConnection.aspsp_name}
+                      <Badge variant="secondary" className="ml-2">{selectedConnection.aspsp_country}</Badge>
+                    </p>
+                    {selectedConnection.iban && <p>IBAN: {selectedConnection.iban}</p>}
+                    <p>
+                      Valid until:{" "}
+                      {new Date(selectedConnection.valid_until).toLocaleDateString()}
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-2">
+                  {!activeConnection ? (
+                    <Button
+                      onClick={handleConnect}
+                      disabled={loading !== null}
+                      data-testid="connect-button"
+                    >
+                      {loading === "connect" ? (
+                        <>
+                          <Loader2 className="animate-spin" />
+                          Connecting…
+                        </>
+                      ) : (
+                        <>
+                          <LinkIcon className="h-4 w-4" />
+                          Connect Bank
+                        </>
+                      )}
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={handleConnect}
+                        disabled={loading !== null || importProgress !== null}
+                        data-testid="reconnect-button"
+                      >
+                        Reconnect
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          disabled={loading !== null || importProgress !== null}
+                          data-testid="import-history-button"
+                          render={
+                            <Button variant="outline">
+                              <History className="h-4 w-4" />
+                              Import History
+                            </Button>
+                          }
+                        />
+                        <DropdownMenuContent>
+                          <DropdownMenuItem
+                            data-testid="import-3m"
+                            onClick={() => handleImportHistory(3)}
+                          >
+                            3 Months
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            data-testid="import-1y"
+                            onClick={() => handleImportHistory(12)}
+                          >
+                            1 Year
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            data-testid="import-5y"
+                            onClick={() => handleImportHistory(60)}
+                          >
+                            5 Years
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
@@ -136,8 +256,18 @@ export default function App() {
           </Alert>
         )}
 
-        <div className="flex justify-center gap-3">
-          {!activeConnection ? (
+        {importProgress && (
+          <div
+            className="flex items-center justify-center gap-2 text-sm text-muted-foreground"
+            data-testid="import-progress"
+          >
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {importProgress}
+          </div>
+        )}
+
+        {!activeConnection && (
+          <div className="flex justify-center">
             <Button
               onClick={handleConnect}
               disabled={loading !== null}
@@ -156,100 +286,7 @@ export default function App() {
                 </>
               )}
             </Button>
-          ) : (
-            <>
-              <Button
-                onClick={async () => {
-                  await handleRefresh();
-                  refreshAnalytics();
-                }}
-                disabled={loading !== null || importProgress !== null}
-                size="lg"
-                data-testid="refresh-button"
-              >
-                {loading === "refresh" ? (
-                  <>
-                    <Loader2 className="animate-spin" />
-                    Refreshing…
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="h-4 w-4" />
-                    Refresh Transactions
-                  </>
-                )}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleConnect}
-                disabled={loading !== null || importProgress !== null}
-                size="lg"
-                data-testid="reconnect-button"
-              >
-                Reconnect
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  disabled={loading !== null || importProgress !== null}
-                  data-testid="import-history-button"
-                  render={
-                    <Button variant="outline" size="lg">
-                      <History className="h-4 w-4" />
-                      Import History
-                    </Button>
-                  }
-                />
-                <DropdownMenuContent>
-                  <DropdownMenuItem
-                    data-testid="import-3m"
-                    onClick={() => handleImportHistory(3)}
-                  >
-                    3 Months
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    data-testid="import-1y"
-                    onClick={() => handleImportHistory(12)}
-                  >
-                    1 Year
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    data-testid="import-5y"
-                    onClick={() => handleImportHistory(60)}
-                  >
-                    5 Years
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </>
-          )}
-        </div>
-
-        {importProgress && (
-          <div
-            className="flex items-center justify-center gap-2 text-sm text-muted-foreground"
-            data-testid="import-progress"
-          >
-            <Loader2 className="h-4 w-4 animate-spin" />
-            {importProgress}
           </div>
-        )}
-
-        {selectedConnection && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                Connected to {selectedConnection.aspsp_name}
-                <Badge variant="secondary">{selectedConnection.aspsp_country}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              {selectedConnection.iban && <p>IBAN: {selectedConnection.iban}</p>}
-              <p>
-                Valid until:{" "}
-                {new Date(selectedConnection.valid_until).toLocaleDateString()}
-              </p>
-            </CardContent>
-          </Card>
         )}
 
         {currentMonthIncome !== null && (

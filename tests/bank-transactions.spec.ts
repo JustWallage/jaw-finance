@@ -135,7 +135,8 @@ test.describe("Bank connection flow via mock", () => {
     const firstCount = await table.locator("tbody tr").count();
     expect(firstCount).toBeGreaterThan(0);
 
-    // Second connection: reconnect and refresh again
+    // Second connection: open user menu and reconnect
+    await page.getByTestId("user-menu-trigger").click();
     await page.getByTestId("reconnect-button").click();
     await page.waitForURL("**/mock-enable-banking/consent**");
     await page.getByTestId("simulate-success").click();
@@ -163,7 +164,8 @@ test.describe("Bank connection flow via mock", () => {
     await page.getByTestId("simulate-success").click();
     await page.waitForURL("**/?connected=true");
 
-    // Wait for connection to be active
+    // Wait for connection to be active, then open user menu for import
+    await page.getByTestId("user-menu-trigger").click();
     const importBtn = page.getByTestId("import-history-button");
     await expect(importBtn).toBeVisible({ timeout: 5_000 });
 

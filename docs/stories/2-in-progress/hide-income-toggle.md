@@ -1,0 +1,1 @@
+In the top right of the page, show a hide income toggle that hides all income (only in the FE, no changes in backend required).
