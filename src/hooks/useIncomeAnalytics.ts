@@ -22,6 +22,9 @@ export function useIncomeAnalytics(accountUid: string) {
   const [currentMonthIncome, setCurrentMonthIncome] = useState<number | null>(
     null,
   );
+  const [currentMonthExpense, setCurrentMonthExpense] = useState<number | null>(
+    null,
+  );
   const [pastMonths, setPastMonths] = useState<MonthlyIncome[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -56,6 +59,7 @@ export function useIncomeAnalytics(accountUid: string) {
         const currentPeriod = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
         const current = data.by_month.find((m) => m.period === currentPeriod);
         setCurrentMonthIncome(current?.income ?? 0);
+        setCurrentMonthExpense(current?.expense ?? 0);
         setPastMonths(
           data.by_month.filter((m) => m.period !== currentPeriod).reverse(),
         );
@@ -67,5 +71,5 @@ export function useIncomeAnalytics(accountUid: string) {
 
   const refresh = () => setRefreshKey((k) => k + 1);
 
-  return { currentMonthIncome, pastMonths, refresh };
+  return { currentMonthIncome, currentMonthExpense, pastMonths, refresh };
 }

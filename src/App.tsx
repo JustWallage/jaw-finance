@@ -1,4 +1,4 @@
-import { Loader2, RefreshCw, Link as LinkIcon, AlertTriangle, History, User, TrendingUp } from "lucide-react";
+import { Loader2, RefreshCw, Link as LinkIcon, AlertTriangle, History, User, TrendingUp, TrendingDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -59,8 +59,14 @@ export default function App() {
     (c) => c.account_uid === selectedAccountUid,
   );
 
-  const { currentMonthIncome, pastMonths, refresh: refreshAnalytics } =
+  const { currentMonthIncome, currentMonthExpense, pastMonths, refresh: refreshAnalytics } =
     useIncomeAnalytics(selectedAccountUid);
+
+  const formatPeriod = (period: string) => {
+    const [year, month] = period.split("-");
+    const date = new Date(Number(year), Number(month) - 1);
+    return date.toLocaleString("default", { month: "long", year: "numeric" });
+  };
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-start bg-background p-8 text-foreground dark">
@@ -247,39 +253,75 @@ export default function App() {
         )}
 
         {currentMonthIncome !== null && (
-          <Card data-testid="income-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Income
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="mb-4">
-                <p className="text-sm text-muted-foreground">This month</p>
-                <p className="text-3xl font-bold text-green-500" data-testid="current-month-income">
-                  +{currentMonthIncome.toFixed(2)} EUR
-                </p>
-              </div>
-              {pastMonths.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">Past months</p>
-                  {pastMonths.map((m) => (
-                    <div
-                      key={m.period}
-                      className="flex items-center justify-between text-sm"
-                      data-testid={`income-month-${m.period}`}
-                    >
-                      <span className="text-muted-foreground">{m.period}</span>
-                      <span className="font-medium text-green-500">
-                        +{m.income.toFixed(2)} EUR
-                      </span>
-                    </div>
-                  ))}
+          <div className="grid grid-cols-2 gap-4">
+            <Card data-testid="income-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Income
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-4">
+                  <p className="text-sm text-muted-foreground">This month</p>
+                  <p className="text-3xl font-bold text-green-500" data-testid="current-month-income">
+                    +{currentMonthIncome.toFixed(2)} EUR
+                  </p>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+                {pastMonths.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">Past months</p>
+                    {pastMonths.map((m) => (
+                      <div
+                        key={m.period}
+                        className="flex items-center justify-between text-sm"
+                        data-testid={`income-month-${m.period}`}
+                      >
+                        <span className="text-muted-foreground">{formatPeriod(m.period)}</span>
+                        <span className="font-medium text-green-500">
+                          {m.income.toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card data-testid="expense-card">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingDown className="h-5 w-5" />
+                  Expenses
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-4">
+                  <p className="text-sm text-muted-foreground">This month</p>
+                  <p className="text-3xl font-bold text-red-500" data-testid="current-month-expense">
+                    -{(currentMonthExpense ?? 0).toFixed(2)} EUR
+                  </p>
+                </div>
+                {pastMonths.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">Past months</p>
+                    {pastMonths.map((m) => (
+                      <div
+                        key={m.period}
+                        className="flex items-center justify-between text-sm"
+                        data-testid={`expense-month-${m.period}`}
+                      >
+                        <span className="text-muted-foreground">{formatPeriod(m.period)}</span>
+                        <span className="font-medium text-red-500">
+                          {m.expense.toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {transactions.length > 0 && (
