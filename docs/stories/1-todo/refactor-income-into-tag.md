@@ -1,0 +1,1 @@
+To filter/aggregate on income vs expenses, just add a tag with that value to each payment instead of using the CRDT or DBIT column. This is cleaner as then all querying/aggregating will be done based on tags, and not on individual combinations.

@@ -17,3 +17,6 @@ vacation-malaga-2026
 vacation-summer
 vacation-2026
 
+
+
+Some tags will be assigned automatically, eg income & expense, some manually, some via an AI script that does this.

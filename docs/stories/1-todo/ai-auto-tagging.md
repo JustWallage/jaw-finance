@@ -1,0 +1,2 @@
+When the user has set a big enough amount of tags, we can run the payments through some kind of AI model that'll auto tag the existing and new payments. It should also be able to create new tags that it thinks are relevant, perhpas we should use an LLM for that last part.
+Also when new tags are added, I think it should reevaluate the existing payments.

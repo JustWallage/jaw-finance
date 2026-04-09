@@ -1,4 +1,4 @@
-import { Loader2, RefreshCw, Link as LinkIcon, AlertTriangle, History, User } from "lucide-react";
+import { Loader2, RefreshCw, Link as LinkIcon, AlertTriangle, History, User, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useBankConnection } from "./hooks/useBankConnection";
+import { useIncomeAnalytics } from "./hooks/useIncomeAnalytics";
 
 export default function App() {
   const {
@@ -57,6 +58,9 @@ export default function App() {
   const selectedConnection = connections.find(
     (c) => c.account_uid === selectedAccountUid,
   );
+
+  const { currentMonthIncome, pastMonths, refresh: refreshAnalytics } =
+    useIncomeAnalytics(selectedAccountUid);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-start bg-background p-8 text-foreground dark">
@@ -149,7 +153,10 @@ export default function App() {
           ) : (
             <>
               <Button
-                onClick={handleRefresh}
+                onClick={async () => {
+                  await handleRefresh();
+                  refreshAnalytics();
+                }}
                 disabled={loading !== null || importProgress !== null}
                 size="lg"
                 data-testid="refresh-button"
@@ -235,6 +242,42 @@ export default function App() {
                 Valid until:{" "}
                 {new Date(selectedConnection.valid_until).toLocaleDateString()}
               </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {currentMonthIncome !== null && (
+          <Card data-testid="income-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Income
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4">
+                <p className="text-sm text-muted-foreground">This month</p>
+                <p className="text-3xl font-bold text-green-500" data-testid="current-month-income">
+                  +{currentMonthIncome.toFixed(2)} EUR
+                </p>
+              </div>
+              {pastMonths.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Past months</p>
+                  {pastMonths.map((m) => (
+                    <div
+                      key={m.period}
+                      className="flex items-center justify-between text-sm"
+                      data-testid={`income-month-${m.period}`}
+                    >
+                      <span className="text-muted-foreground">{m.period}</span>
+                      <span className="font-medium text-green-500">
+                        +{m.income.toFixed(2)} EUR
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
