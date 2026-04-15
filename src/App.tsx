@@ -1,3 +1,4 @@
+import { useState, useCallback } from "react";
 import { Loader2, RefreshCw, Link as LinkIcon, AlertTriangle, History, User, TrendingUp, TrendingDown, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,6 +41,9 @@ import {
 import { useBankConnection } from "./hooks/useBankConnection";
 import { useIncomeAnalytics } from "./hooks/useIncomeAnalytics";
 import { useLocalStorage } from "./hooks/useLocalStorage";
+import { useTags } from "./hooks/useTags";
+import { TagSelector } from "./components/TagSelector";
+import type { DBTag } from "../db/types";
 
 export default function App() {
   const {
@@ -72,6 +76,26 @@ export default function App() {
     useIncomeAnalytics(selectedAccountUid);
 
   const [hideIncome, setHideIncome] = useLocalStorage("jaw-finance-hide-income", false);
+
+  const { tags, fetchTags, createTag, deleteTag, getTagCount, getTransactionTags, assignTag, removeTag } = useTags();
+  const [selectedTxId, setSelectedTxId] = useState<number | null>(null);
+  const [selectedTxTags, setSelectedTxTags] = useState<DBTag[]>([]);
+
+  const selectedTx = transactions.find((tx) => tx.id === selectedTxId) ?? null;
+
+  const openTransaction = useCallback(async (txId: number) => {
+    setSelectedTxId(txId);
+    const txTagList = await getTransactionTags(txId);
+    setSelectedTxTags(txTagList);
+  }, [getTransactionTags]);
+
+  const handleTagsChanged = useCallback(async () => {
+    if (selectedTxId) {
+      const txTagList = await getTransactionTags(selectedTxId);
+      setSelectedTxTags(txTagList);
+    }
+    fetchTags();
+  }, [selectedTxId, getTransactionTags, fetchTags]);
 
   const formatPeriod = (period: string) => {
     const [year, month] = period.split("-");
@@ -388,7 +412,12 @@ export default function App() {
                 </TableHeader>
                 <TableBody>
                   {displayedTransactions.map((tx) => (
-                    <TableRow key={tx.id}>
+                    <TableRow
+                      key={tx.id}
+                      className="cursor-pointer"
+                      onClick={() => openTransaction(tx.id)}
+                      data-testid={`tx-row-${tx.id}`}
+                    >
                       <TableCell className="whitespace-nowrap">
                         {tx.booking_date ?? "—"}
                       </TableCell>
@@ -418,6 +447,36 @@ export default function App() {
             </CardContent>
           </Card>
         )}
+
+        <Dialog open={selectedTx !== null} onOpenChange={(open) => { if (!open) setSelectedTxId(null); }}>
+          <DialogContent data-testid="transaction-dialog">
+            <DialogHeader>
+              <DialogTitle>{selectedTx?.counterparty_name ?? "Transaction"}</DialogTitle>
+              <DialogDescription>
+                {selectedTx?.booking_date} · {selectedTx?.credit_debit === "DBIT" ? "-" : "+"}{selectedTx?.amount} {selectedTx?.currency}
+              </DialogDescription>
+            </DialogHeader>
+            {selectedTx?.remittance_info && (
+              <p className="text-sm text-muted-foreground">{selectedTx.remittance_info}</p>
+            )}
+            <div className="space-y-2">
+              <p className="text-sm font-medium">Tags</p>
+              {selectedTx && (
+                <TagSelector
+                  transactionId={selectedTx.id}
+                  assignedTags={selectedTxTags}
+                  allTags={tags}
+                  onAssign={assignTag}
+                  onRemove={removeTag}
+                  onDelete={deleteTag}
+                  onCreate={createTag}
+                  getTagCount={getTagCount}
+                  onTagsChanged={handleTagsChanged}
+                />
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

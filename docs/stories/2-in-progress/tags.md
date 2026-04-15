@@ -1,3 +1,5 @@
+Introduce tags. An expense can have multiple tags. They must be assigned either automatically, manually, or via an AI script. 
+
 Everything should be done by tags, all labeling, grouping, etc. Long term/often used tags, but also short term tags for eg a vacation. The idea is to assign all relevant tags to a payment, so eg a vacation spending should get both `vacation` and `vacation-malaga-2026`, this way we can easily aggregate on either tag instead of only assigning `vacation-malaga-2026` and somehow also marking this payment as `vacation` to be able to aggregate on that, just add both.
 
 Disadvantage, if a tag is added later, eg `vacation-summer`, then all previous payments must be evaluated again to possible assign this tag to those as well.

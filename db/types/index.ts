@@ -75,3 +75,19 @@ export interface MockAuthCodeRow {
   state: string | null;
   used: number;
 }
+
+/** Full tags row as stored in D1. */
+export interface DBTag {
+  id: number;
+  user_email: string;
+  name: string;
+  path: string;
+  created_at: string;
+}
+
+/** Full transaction_tags row as stored in D1. */
+export interface DBTransactionTag {
+  transaction_id: number;
+  tag_id: number;
+  created_at: string;
+}

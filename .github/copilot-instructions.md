@@ -48,8 +48,14 @@ Task one: you must keep this document up to date, but only with the broad contex
 
 ## Data Management
 
-- **Database Migrations:** Expand and Contract pattern. Migrations are in `/migrations` and run automatically before each environment's code deployment in the CI pipeline.
+- **Database Migrations:** Expand and Contract pattern. Migrations are in `/db/migrations` and run automatically before each environment's code deployment in the CI pipeline.
 - **Transaction Storage:** Transactions fetched from Enable Banking are cached in D1. Idempotent upserts using a UNIQUE constraint on `(entry_reference, account_uid)`.
+- **Tagging System:** Hierarchical tags using a Materialized Path pattern.
+  - `tags` table with `path` column (e.g., `food/groceries`). Many-to-many relationship via `transaction_tags` junction table.
+  - Auto-tagging: Transactions are automatically tagged with `income`/`expense` and `year-YYYY/month-MM/day-DD` during ingestion (refresh and import).
+  - Date tag format uses explicit prefixes (`year-2026/month-04/day-08`) to prevent wildcard search collisions across hierarchy levels.
+  - Aggregation: `by-tags` endpoint queries parent tags with `LIKE 'path/%'` to include child-tagged transactions.
+  - Frontend: `TagSelector` component per transaction row with inline creation, removal, deletion with confirmation.
 - **Mock State:** The Enable Banking mock uses the existing Staging/Local D1 database for state management. All mock-related tables are strictly prefixed with `mock_enable_banking_`.
 
 Your goal is to get enough context from the user before implementation, nothing can be still unclear. If anything is unclear or yet undecided you must use the `askQuestions` tool to confirm the missing pieces.

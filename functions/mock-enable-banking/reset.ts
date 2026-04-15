@@ -11,6 +11,8 @@ export const onRequestPost: PagesFunction<MockEnv> = async (context) => {
 
   const { env } = context;
   await env.DB.batch([
+    env.DB.prepare("DELETE FROM transaction_tags"),
+    env.DB.prepare("DELETE FROM tags"),
     env.DB.prepare("DELETE FROM mock_enable_banking_auth_codes"),
     env.DB.prepare("DELETE FROM mock_enable_banking_sessions"),
     env.DB.prepare("DELETE FROM transactions"),
