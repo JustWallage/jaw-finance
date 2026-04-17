@@ -106,33 +106,115 @@ test.describe("Transaction tagging", () => {
     await expect(dialog.getByTestId("tag-badge-to-delete")).toBeHidden();
   });
 
-  test("auto-tags appear after sync (income/expense and date tags)", async ({
+  test("auto-tags: only leaf date tag is linked, ancestors exist in tags table", async ({
     page,
     request,
   }) => {
     await connectAndRefresh(page);
 
-    // Check auto-tags via API — there should be income/expense and year-YYYY/month-MM/day-DD tags
-    const res = await request.get("/api/tags");
-    const data = (await res.json()) as { tags: Array<{ path: string }> };
-    const paths = data.tags.map((t) => t.path);
+    // Check tags table — all ancestor tags should exist
+    const tagsRes = await request.get("/api/tags");
+    const tagsData = (await tagsRes.json()) as {
+      tags: Array<{ path: string }>;
+    };
+    const allPaths = tagsData.tags.map((t) => t.path);
 
-    expect(paths).toContain("income");
-    expect(paths).toContain("expense");
+    expect(allPaths).toContain("income");
+    expect(allPaths).toContain("expense");
 
-    // Should have year-level tags like year-2026
-    const yearTags = paths.filter((p) => /^year-\d{4}$/.test(p));
+    // Ancestor tags exist in the tags table
+    const yearTags = allPaths.filter((p) => /^year-\d{4}$/.test(p));
     expect(yearTags.length).toBeGreaterThan(0);
-
-    // Should have month-level tags like year-2026/month-04
-    const monthTags = paths.filter((p) => /^year-\d{4}\/month-\d{2}$/.test(p));
+    const monthTags = allPaths.filter((p) =>
+      /^year-\d{4}\/month-\d{2}$/.test(p),
+    );
     expect(monthTags.length).toBeGreaterThan(0);
-
-    // Should have day-level tags like year-2026/month-04/day-08
-    const dayTags = paths.filter((p) =>
+    const dayTags = allPaths.filter((p) =>
       /^year-\d{4}\/month-\d{2}\/day-\d{2}$/.test(p),
     );
     expect(dayTags.length).toBeGreaterThan(0);
+
+    // But only leaf tags are linked to transactions
+    const txRes = await request.get("/api/bank/transactions");
+    const txData = (await txRes.json()) as {
+      transactions: Array<{ id: number }>;
+    };
+    const txId = txData.transactions[0].id;
+
+    const txTagsRes = await request.get(`/api/transactions/${txId}/tags`);
+    const txTagsData = (await txTagsRes.json()) as {
+      tags: Array<{ path: string }>;
+    };
+    const linkedPaths = txTagsData.tags.map((t) => t.path);
+
+    // Should have income or expense (leaf — no children)
+    const hasFlowTag = linkedPaths.some(
+      (p) => p === "income" || p === "expense",
+    );
+    expect(hasFlowTag).toBe(true);
+
+    // Should have a day-level tag linked, but NOT year or month alone
+    const linkedDayTags = linkedPaths.filter((p) =>
+      /^year-\d{4}\/month-\d{2}\/day-\d{2}$/.test(p),
+    );
+    expect(linkedDayTags.length).toBe(1);
+
+    const linkedYearOnly = linkedPaths.filter((p) => /^year-\d{4}$/.test(p));
+    expect(linkedYearOnly.length).toBe(0);
+
+    const linkedMonthOnly = linkedPaths.filter((p) =>
+      /^year-\d{4}\/month-\d{2}$/.test(p),
+    );
+    expect(linkedMonthOnly.length).toBe(0);
+  });
+
+  test("assigning child tag removes parent tag link (consolidation)", async ({
+    page,
+    request,
+  }) => {
+    await connectAndRefresh(page);
+
+    // Get a transaction
+    const txRes = await request.get("/api/bank/transactions");
+    const txData = (await txRes.json()) as {
+      transactions: Array<{ id: number }>;
+    };
+    const txId = txData.transactions[0].id;
+
+    // Create parent and child tags
+    const parentRes = await request.post("/api/tags", {
+      data: { name: "vacation", path: "vacation" },
+    });
+    const parentTag = ((await parentRes.json()) as { tag: { id: number } }).tag;
+
+    const childRes = await request.post("/api/tags", {
+      data: { name: "malaga-2026", path: "vacation/malaga-2026" },
+    });
+    const childTag = ((await childRes.json()) as { tag: { id: number } }).tag;
+
+    // Assign parent tag first
+    await request.put(`/api/transactions/${txId}/tags`, {
+      data: { tag_id: parentTag.id },
+    });
+
+    // Verify parent is linked
+    let linkedRes = await request.get(`/api/transactions/${txId}/tags`);
+    let linkedData = (await linkedRes.json()) as {
+      tags: Array<{ path: string }>;
+    };
+    let linkedPaths = linkedData.tags.map((t) => t.path);
+    expect(linkedPaths).toContain("vacation");
+
+    // Now assign child tag — parent should be removed
+    await request.put(`/api/transactions/${txId}/tags`, {
+      data: { tag_id: childTag.id },
+    });
+
+    linkedRes = await request.get(`/api/transactions/${txId}/tags`);
+    linkedData = (await linkedRes.json()) as { tags: Array<{ path: string }> };
+    linkedPaths = linkedData.tags.map((t) => t.path);
+    expect(linkedPaths).toContain("vacation/malaga-2026");
+    expect(linkedPaths).not.toContain("vacation");
   });
 
   test("by-tags aggregation includes child-tagged transactions", async ({

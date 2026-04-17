@@ -54,6 +54,7 @@ Task one: you must keep this document up to date, but only with the broad contex
   - `tags` table with `path` column (e.g., `food/groceries`). Many-to-many relationship via `transaction_tags` junction table.
   - Auto-tagging: Transactions are automatically tagged with `income`/`expense` and `year-YYYY/month-MM/day-DD` during ingestion (refresh and import).
   - Date tag format uses explicit prefixes (`year-2026/month-04/day-08`) to prevent wildcard search collisions across hierarchy levels.
+  - Leaf Node Consolidation: Transactions are strictly linked to the deepest explicitly assigned node in a tag's lineage. Assigning a child tag automatically unlinks any ancestor tags from the transaction to prevent database and UI bloat, while all ancestor tags remain in the `tags` table for hierarchy queries.
   - Aggregation: `by-tags` endpoint queries parent tags with `LIKE 'path/%'` to include child-tagged transactions.
   - Frontend: `TagSelector` component per transaction row with inline creation, removal, deletion with confirmation.
 - **Mock State:** The Enable Banking mock uses the existing Staging/Local D1 database for state management. All mock-related tables are strictly prefixed with `mock_enable_banking_`.
