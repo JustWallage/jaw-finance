@@ -1,5 +1,6 @@
 export interface EBEnv {
   DB: D1Database;
+  AI: Ai;
   ENABLE_BANKING_APP_ID: string;
   ENABLE_BANKING_SECRET: string;
   ENABLE_BANKING_API_URL: string;

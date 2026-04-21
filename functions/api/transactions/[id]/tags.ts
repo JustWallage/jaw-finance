@@ -49,7 +49,14 @@ export const onRequestPut: PagesFunction<EBEnv> = async (context) => {
     }
 
     // Assign with leaf-node consolidation (removes ancestor links)
-    await assignTagConsolidated(env.DB, txId, userEmail, tag.path);
+    await assignTagConsolidated(
+      env.DB,
+      txId,
+      userEmail,
+      tag.path,
+      "user",
+      "confirmed",
+    );
 
     return Response.json({ assigned: true });
   } catch (err) {

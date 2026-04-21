@@ -13,15 +13,12 @@ export async function autoTagTransaction(
   bookingDate: string | null,
   userEmail: string,
 ): Promise<void> {
-  // Financial flow tag (no hierarchy — assign directly)
   if (creditDebit === "CRDT") {
-    await assignTagConsolidated(db, transactionId, userEmail, "income");
+    await assignTagConsolidated(db, transactionId, userEmail, "income", "system", "confirmed");
   } else if (creditDebit === "DBIT") {
-    await assignTagConsolidated(db, transactionId, userEmail, "expense");
+    await assignTagConsolidated(db, transactionId, userEmail, "expense", "system", "confirmed");
   }
 
-  // Date tags — only assign the deepest (day-level) tag.
-  // assignTagConsolidated ensures year and month ancestors exist in the tags table.
   if (bookingDate) {
     const d = new Date(bookingDate + "T00:00:00Z");
     const year = d.getUTCFullYear();
@@ -29,6 +26,6 @@ export async function autoTagTransaction(
     const day = String(d.getUTCDate()).padStart(2, "0");
 
     const dayPath = `year-${year}/month-${month}/day-${day}`;
-    await assignTagConsolidated(db, transactionId, userEmail, dayPath);
+    await assignTagConsolidated(db, transactionId, userEmail, dayPath, "system", "confirmed");
   }
 }

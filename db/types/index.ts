@@ -76,12 +76,20 @@ export interface MockAuthCodeRow {
   used: number;
 }
 
+/** Tag lifecycle status. */
+export type TagStatus = "confirmed" | "unconfirmed" | "rejected";
+
+/** Origin that produced the tag. */
+export type TagSource = "system" | "user" | "llm";
+
 /** Full tags row as stored in D1. */
 export interface DBTag {
   id: number;
   user_email: string;
   name: string;
   path: string;
+  status: TagStatus;
+  source: TagSource;
   created_at: string;
 }
 

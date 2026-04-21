@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { DBTag } from "../../db/types";
-
-function authHeaders(): HeadersInit {
-  const email = import.meta.env.VITE_DEV_USER_EMAIL;
-  return email ? { "Cf-Access-Authenticated-User-Email": email } : {};
-}
+import { authHeaders } from "../lib/auth-headers";
 
 export function useTags() {
   const [tags, setTags] = useState<DBTag[]>([]);

@@ -1,1 +1,0 @@
-When AI decides some two tags are similar (eg food & diner), then it should suggest the merge to the user who can then accept or reject the merge. If the user doesn't accept, this merge should be stored and perhaps added to the prompt to prevent the AI from suggesting the merge again.
