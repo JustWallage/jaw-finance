@@ -88,7 +88,7 @@ async function batchInsertAndTag(
   }
 
   for (const tagPath of uniqueTagPaths) {
-    const name = tagPath.split("/").pop()!;
+    const name = tagPath.split("/").pop() || tagPath;
     phase1.push(
       db
         .prepare(
