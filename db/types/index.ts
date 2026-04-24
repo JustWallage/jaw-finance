@@ -90,6 +90,10 @@ export interface DBTag {
   path: string;
   status: TagStatus;
   source: TagSource;
+  /** Optional dictionary-style definition. Provided to the LLM at evaluation
+   *  time as context. Only set on leaf tags created by the LLM (ancestors
+   *  remain null). User-created and system tags are also null by default. */
+  reasoning: string | null;
   created_at: string;
 }
 

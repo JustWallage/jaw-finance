@@ -56,6 +56,7 @@ export const onRequestPut: PagesFunction<EBEnv> = async (context) => {
       tag.path,
       "user",
       "confirmed",
+      null,
     );
 
     return Response.json({ assigned: true });

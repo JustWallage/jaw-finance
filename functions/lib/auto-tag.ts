@@ -14,9 +14,9 @@ export async function autoTagTransaction(
   userEmail: string,
 ): Promise<void> {
   if (creditDebit === "CRDT") {
-    await assignTagConsolidated(db, transactionId, userEmail, "income", "system", "confirmed");
+    await assignTagConsolidated(db, transactionId, userEmail, "income", "system", "confirmed", null);
   } else if (creditDebit === "DBIT") {
-    await assignTagConsolidated(db, transactionId, userEmail, "expense", "system", "confirmed");
+    await assignTagConsolidated(db, transactionId, userEmail, "expense", "system", "confirmed", null);
   }
 
   if (bookingDate) {
@@ -26,6 +26,6 @@ export async function autoTagTransaction(
     const day = String(d.getUTCDate()).padStart(2, "0");
 
     const dayPath = `year-${year}/month-${month}/day-${day}`;
-    await assignTagConsolidated(db, transactionId, userEmail, dayPath, "system", "confirmed");
+    await assignTagConsolidated(db, transactionId, userEmail, dayPath, "system", "confirmed", null);
   }
 }

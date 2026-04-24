@@ -65,22 +65,38 @@ test.describe("AI auto-tagging", () => {
     // Click AI Evaluate
     await dialog.getByTestId("ai-evaluate-button").click();
 
-    // Mocked tag "ai-mock/new-suggestion" should appear on the transaction
+    // Mocked tag "ai-mock/new-parent/new-leaf" should appear on the transaction
     await expect(
-      dialog.getByTestId("tag-badge-ai-mock/new-suggestion"),
+      dialog.getByTestId("tag-badge-ai-mock/new-parent/new-leaf"),
     ).toBeVisible({ timeout: 5_000 });
 
     // The new tag should be unconfirmed in the DB
     const tagsRes = await request.get("/api/tags?status=unconfirmed");
     const tagsData = (await tagsRes.json()) as {
-      tags: Array<{ path: string; status: string; source: string }>;
+      tags: Array<{
+        path: string;
+        status: string;
+        source: string;
+        reasoning: string | null;
+      }>;
     };
-    const aiTag = tagsData.tags.find(
-      (t) => t.path === "ai-mock/new-suggestion",
+    const leafTag = tagsData.tags.find(
+      (t) => t.path === "ai-mock/new-parent/new-leaf",
     );
-    expect(aiTag).toBeDefined();
-    expect(aiTag?.status).toBe("unconfirmed");
-    expect(aiTag?.source).toBe("llm");
+    expect(leafTag).toBeDefined();
+    expect(leafTag?.status).toBe("unconfirmed");
+    expect(leafTag?.source).toBe("llm");
+    // Leaf carries the LLM's root reasoning string.
+    expect(leafTag?.reasoning).toBe("Deterministic mock reasoning for E2E tests.");
+
+    // The auto-created ancestor tag must exist with reasoning = null.
+    const parentTag = tagsData.tags.find(
+      (t) => t.path === "ai-mock/new-parent",
+    );
+    expect(parentTag).toBeDefined();
+    expect(parentTag?.source).toBe("llm");
+    expect(parentTag?.status).toBe("unconfirmed");
+    expect(parentTag?.reasoning).toBeNull();
   });
 
   test("Tags page: unconfirmed appears at top, confirming moves it down", async ({
@@ -97,7 +113,7 @@ test.describe("AI auto-tagging", () => {
     await expect(
       page
         .getByTestId("transaction-dialog")
-        .getByTestId("tag-badge-ai-mock/new-suggestion"),
+        .getByTestId("tag-badge-ai-mock/new-parent/new-leaf"),
     ).toBeVisible();
     await page.keyboard.press("Escape");
 
@@ -108,24 +124,24 @@ test.describe("AI auto-tagging", () => {
     const unconfirmed = page.getByTestId("unconfirmed-section");
     const confirmed = page.getByTestId("confirmed-section");
     await expect(
-      unconfirmed.getByTestId("tag-row-ai-mock/new-suggestion"),
+      unconfirmed.getByTestId("tag-row-ai-mock/new-parent/new-leaf"),
     ).toBeVisible();
     await expect(
-      confirmed.getByTestId("tag-row-ai-mock/new-suggestion"),
+      confirmed.getByTestId("tag-row-ai-mock/new-parent/new-leaf"),
     ).toHaveCount(0);
 
     // Click the tag → detail dialog → Confirm
-    await unconfirmed.getByTestId("tag-row-ai-mock/new-suggestion").click();
+    await unconfirmed.getByTestId("tag-row-ai-mock/new-parent/new-leaf").click();
     const detail = page.getByTestId("tag-detail-dialog");
     await expect(detail).toBeVisible();
     await detail.getByTestId("tag-confirm-button").click();
 
     // Now it should be in the confirmed section
     await expect(
-      confirmed.getByTestId("tag-row-ai-mock/new-suggestion"),
+      confirmed.getByTestId("tag-row-ai-mock/new-parent/new-leaf"),
     ).toBeVisible({ timeout: 5_000 });
     await expect(
-      unconfirmed.getByTestId("tag-row-ai-mock/new-suggestion"),
+      unconfirmed.getByTestId("tag-row-ai-mock/new-parent/new-leaf"),
     ).toHaveCount(0);
   });
 
@@ -142,27 +158,27 @@ test.describe("AI auto-tagging", () => {
     await expect(
       page
         .getByTestId("transaction-dialog")
-        .getByTestId("tag-badge-ai-mock/new-suggestion"),
+        .getByTestId("tag-badge-ai-mock/new-parent/new-leaf"),
     ).toBeVisible();
     await page.keyboard.press("Escape");
 
     await page.getByTestId("nav-tags").click();
     await page
       .getByTestId("unconfirmed-section")
-      .getByTestId("tag-row-ai-mock/new-suggestion")
+      .getByTestId("tag-row-ai-mock/new-parent/new-leaf")
       .click();
 
     const detail = page.getByTestId("tag-detail-dialog");
     await detail.getByTestId("tag-edit-button").click();
     const input = detail.getByTestId("tag-edit-input");
-    await input.fill("renamed-suggestion");
+    await input.fill("renamed-leaf");
     await detail.getByTestId("tag-edit-save").click();
 
     // Detail dialog closes; new path should appear in unconfirmed section
     await expect(
       page
         .getByTestId("unconfirmed-section")
-        .getByTestId("tag-row-ai-mock/renamed-suggestion"),
+        .getByTestId("tag-row-ai-mock/new-parent/renamed-leaf"),
     ).toBeVisible({ timeout: 5_000 });
 
     // DB check: still unconfirmed
@@ -171,7 +187,7 @@ test.describe("AI auto-tagging", () => {
       tags: Array<{ path: string; status: string }>;
     };
     expect(
-      tagsData.tags.some((t) => t.path === "ai-mock/renamed-suggestion"),
+      tagsData.tags.some((t) => t.path === "ai-mock/new-parent/renamed-leaf"),
     ).toBe(true);
   });
 
@@ -195,7 +211,7 @@ test.describe("AI auto-tagging", () => {
     await expect(
       page
         .getByTestId("transaction-dialog")
-        .getByTestId("tag-badge-ai-mock/new-suggestion"),
+        .getByTestId("tag-badge-ai-mock/new-parent/new-leaf"),
     ).toBeVisible();
     await page.keyboard.press("Escape");
 
@@ -203,7 +219,7 @@ test.describe("AI auto-tagging", () => {
     await page.getByTestId("nav-tags").click();
     await page
       .getByTestId("unconfirmed-section")
-      .getByTestId("tag-row-ai-mock/new-suggestion")
+      .getByTestId("tag-row-ai-mock/new-parent/new-leaf")
       .click();
     await page
       .getByTestId("tag-detail-dialog")
@@ -212,7 +228,7 @@ test.describe("AI auto-tagging", () => {
 
     // Tag should disappear from both unconfirmed and confirmed sections
     await expect(
-      page.getByTestId("tag-row-ai-mock/new-suggestion"),
+      page.getByTestId("tag-row-ai-mock/new-parent/new-leaf"),
     ).toHaveCount(0, { timeout: 5_000 });
 
     // Transaction should no longer have the rejected tag linked
@@ -221,7 +237,7 @@ test.describe("AI auto-tagging", () => {
       tags: Array<{ path: string }>;
     };
     expect(
-      txTagsData.tags.some((t) => t.path === "ai-mock/new-suggestion"),
+      txTagsData.tags.some((t) => t.path === "ai-mock/new-parent/new-leaf"),
     ).toBe(false);
 
     // Open Rejected Tags modal — rejected tag should be listed
@@ -229,7 +245,7 @@ test.describe("AI auto-tagging", () => {
     const rejectedDialog = page.getByTestId("rejected-dialog");
     await expect(rejectedDialog).toBeVisible();
     await expect(
-      rejectedDialog.getByTestId("rejected-badge-ai-mock/new-suggestion"),
+      rejectedDialog.getByTestId("rejected-badge-ai-mock/new-parent/new-leaf"),
     ).toBeVisible();
   });
 });

@@ -1,26 +1,17 @@
 import { getUserEmail, type EBEnv } from "../../../lib/enable-banking";
 import { assignTagConsolidated } from "../../../lib/tag-utils";
 import type { DBTag, DBTransaction } from "../../../../db/types";
+import { exampleTagList, MAX_NEW_TAGS, SYSTEM_PROMPT } from "./prompt";
 
 interface AIResponse {
-  tags: string[];
+  reasoning?: string;
+  tags?: string[];
 }
 
-const MAX_NEW_TAGS = 5;
-
-const SYSTEM_PROMPT = `You categorize bank transactions with hierarchical Materialized Path tags (e.g. "food/groceries", "vacation/summer-2026/transport").
-
-Core principle: QUALITY OVER QUANTITY. Most transactions need 0 to 2 tags. It is BETTER to return an empty list than to invent weak tags.
-
-Rules:
-1. Look at ALREADY tags first. If they already describe this transaction well, return {"tags": []}. Do NOT add a parent of any tag in ALREADY (e.g. if "food/delivery" is in ALREADY, do NOT suggest "food").
-2. You may reuse any number of tags from EXISTING (a list of all confirmed and unconfirmed tags) if they fit precisely.
-3. You may also invent NEW paths even when an EXISTING tag fits — just include both. Hard cap: at most ${MAX_NEW_TAGS} new paths total. You almost never need more than 1 or 2 new paths. Do NOT pad the list to reach the cap.
-4. Use lowercase kebab-case segments separated by '/'. Always use the deepest specific path that fits — never suggest both a parent and its child.
-5. NEVER suggest any tag in REJECTED, nor any of its ancestors or descendants.
-6. NEVER suggest reserved auto tags: 'income', 'expense', or paths beginning with 'year-', 'month-', or 'day-'.
-
-Respond with ONLY a JSON object: {"tags": ["path1", "path2"]}. No prose.`;
+interface ParsedAIResponse {
+  reasoning: string | null;
+  tags: string[];
+}
 
 function isReservedAutoPath(p: string): boolean {
   return (
@@ -32,23 +23,35 @@ function isReservedAutoPath(p: string): boolean {
   );
 }
 
+/** Format a tag with optional reasoning into a single string for the prompt:
+ *   "path"            (no reasoning)
+ *   "path (reasoning)" (with reasoning) */
+function formatTagForPrompt(path: string, reasoning: string | null): string {
+  return reasoning ? `${path} (${reasoning})` : path;
+}
+
 function buildPrompt(
   tx: DBTransaction,
   alreadyAssigned: string[],
-  existing: string[],
+  existingFormatted: string[],
   rejected: string[],
 ): string {
+  const exampleFormatted = exampleTagList.map((e) =>
+    formatTagForPrompt(e.path, e.reasoning),
+  );
+  const existingPlusExamples = [...existingFormatted, ...exampleFormatted];
+
   return `Transaction:
 - Date: ${tx.booking_date ?? "unknown"}
-- Amount: ${tx.amount} ${tx.currency} (${tx.credit_debit === "CRDT" ? "income" : "expense"})
+- Amount: ${tx.credit_debit === "CRDT" ? "+" : "-"}${tx.amount} ${tx.currency} (${tx.credit_debit === "CRDT" ? "income" : "expense"})
 - Counterparty: ${tx.counterparty_name ?? "unknown"}
 - Description: ${tx.remittance_info ?? "(none)"}
 
 ALREADY on this transaction (do not re-suggest these or their parents): ${JSON.stringify(alreadyAssigned)}
-EXISTING tags you may reuse (any number): ${JSON.stringify(existing)}
+EXISTING tags you may reuse — format "path (reasoning)" or "path": ${JSON.stringify(existingPlusExamples)}
 REJECTED (NEVER suggest): ${JSON.stringify(rejected)}
 
-Respond with JSON only. Empty list is a valid and often correct answer.`;
+Respond with JSON only.`;
 }
 
 function sanitizePath(raw: string): string | null {
@@ -63,26 +66,35 @@ function sanitizePath(raw: string): string | null {
   return cleaned;
 }
 
-/** Parse model output: model may wrap JSON in prose; extract first {...}. */
-function parseAIResponse(raw: string): string[] {
+/** Parse model output. Model may wrap JSON in prose; extract first {...}. */
+function parseAIResponse(raw: string): ParsedAIResponse {
   const match = raw.match(/\{[\s\S]*\}/);
-  if (!match) return [];
+  if (!match) return { reasoning: null, tags: [] };
   try {
-    const parsed = JSON.parse(match[0]) as Partial<AIResponse>;
-    if (!Array.isArray(parsed.tags)) return [];
-    return parsed.tags.filter((t): t is string => typeof t === "string");
+    const parsed = JSON.parse(match[0]) as AIResponse;
+    const tags = Array.isArray(parsed.tags)
+      ? parsed.tags.filter((t): t is string => typeof t === "string")
+      : [];
+    const reasoning =
+      typeof parsed.reasoning === "string" && parsed.reasoning.trim()
+        ? parsed.reasoning.trim()
+        : null;
+    return { reasoning, tags };
   } catch {
-    return [];
+    return { reasoning: null, tags: [] };
   }
 }
 
-/** Mock branch for staging E2E tests. Returns a deterministic mix of an
- *  existing confirmed tag (if any non-system one exists) and a new one. */
-function mockTags(confirmed: string[]): string[] {
-  const existing = confirmed.find((p) => !isReservedAutoPath(p));
-  return existing
-    ? [existing, "ai-mock/new-suggestion"]
-    : ["ai-mock/existing-fallback", "ai-mock/new-suggestion"];
+/** Mock branch for non-production E2E. Returns a deterministic mix of an
+ *  existing tag (if any non-system one exists) and a new nested path. */
+function mockResponse(existing: string[]): ParsedAIResponse {
+  const reuse = existing.find((p) => !isReservedAutoPath(p));
+  return {
+    reasoning: "Deterministic mock reasoning for E2E tests.",
+    tags: reuse
+      ? [reuse, "ai-mock/new-parent/new-leaf"]
+      : ["ai-mock/existing-fallback", "ai-mock/new-parent/new-leaf"],
+  };
 }
 
 export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
@@ -107,17 +119,16 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
       .bind(userEmail)
       .all<DBTag>();
 
-    const confirmed = allTags.results
-      .filter((t) => t.status === "confirmed" && !isReservedAutoPath(t.path))
-      .map((t) => t.path);
-    // EXISTING = confirmed + unconfirmed (both are reusable; the LLM may suggest either).
-    const existing = allTags.results
-      .filter(
-        (t) =>
-          (t.status === "confirmed" || t.status === "unconfirmed") &&
-          !isReservedAutoPath(t.path),
-      )
-      .map((t) => t.path);
+    // EXISTING = confirmed + unconfirmed user-domain tags (LLM may reuse either).
+    const existingTags = allTags.results.filter(
+      (t) =>
+        (t.status === "confirmed" || t.status === "unconfirmed") &&
+        !isReservedAutoPath(t.path),
+    );
+    const existing = existingTags.map((t) => t.path);
+    const existingFormatted = existingTags.map((t) =>
+      formatTagForPrompt(t.path, t.reasoning),
+    );
     const rejected = allTags.results
       .filter((t) => t.status === "rejected")
       .map((t) => t.path);
@@ -139,25 +150,29 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
       env.ENVIRONMENT !== "production" &&
       context.request.headers.get("X-Test-Mock-AI") === "1";
 
-    let suggested: string[];
+    let parsed: ParsedAIResponse;
     if (useMock) {
-      suggested = mockTags(confirmed);
+      parsed = mockResponse(existing);
     } else {
+      const messages = [
+        { role: "system", content: SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: buildPrompt(tx, alreadyAssigned, existingFormatted, rejected),
+        },
+      ];
       const aiResp = await env.AI.run("@cf/meta/llama-3-8b-instruct", {
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: buildPrompt(tx, alreadyAssigned, existing, rejected),
-          },
-        ],
-        max_tokens: 200,
+        messages,
+        max_tokens: 300,
       });
       const text =
         typeof (aiResp as { response?: string }).response === "string"
           ? (aiResp as { response: string }).response
           : JSON.stringify(aiResp);
-      suggested = parseAIResponse(text);
+      console.log(
+        `Input:\n${messages.map((m) => `${m.role}: ${m.content}`).join("\n\n")}\nAI output:\n${text}`,
+      );
+      parsed = parseAIResponse(text);
     }
 
     const rejectedSet = new Set(rejected);
@@ -166,7 +181,7 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
 
     // Stage 1: sanitize + drop rejected/banned/reserved.
     const sanitized: string[] = [];
-    for (const raw of suggested) {
+    for (const raw of parsed.tags) {
       const path = sanitizePath(raw);
       if (!path) continue;
       const segs = path.split("/");
@@ -181,8 +196,7 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
     }
 
     // Stage 2: drop a path if any OTHER (deeper) sanitized path or any
-    // already-assigned path has it as a strict prefix. Prevents the model from
-    // adding "food" when "food/delivery" is also suggested or already present.
+    // already-assigned path has it as a strict prefix.
     const allDeeper = new Set([...sanitized, ...alreadyAssigned]);
     const deduped = sanitized.filter((p) => {
       for (const other of allDeeper) {
@@ -191,11 +205,10 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
       return true;
     });
 
-    // Stage 3: drop exact duplicates of already-assigned (no-op work).
+    // Stage 3: drop exact duplicates of already-assigned.
     const remaining = deduped.filter((p) => !alreadySet.has(p));
 
-    // Stage 4: cap NEW (paths that don't already exist as confirmed or
-    // unconfirmed) at MAX_NEW_TAGS. Reuses of existing tags are unlimited.
+    // Stage 4: cap NEW (not in existingSet) at MAX_NEW_TAGS. Reuses unlimited.
     const accepted: string[] = [];
     let newCount = 0;
     for (const p of remaining) {
@@ -206,8 +219,10 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
         newCount++;
       }
     }
-    // ON CONFLICT in ensureTagWithAncestors only updates `name`, so source/status
-    // for existing rows are preserved. For NEW paths we mark as llm/unconfirmed.
+
+    // Assign. For NEW leaves, propagate the LLM's root reasoning to the leaf
+    // segment only; ancestors get reasoning=null. Reused tags pass null
+    // (ON CONFLICT preserves their existing reasoning).
     const assignedPaths: string[] = [];
     for (const path of accepted) {
       const isNew = !existingSet.has(path);
@@ -218,11 +233,15 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
         path,
         isNew ? "llm" : "user",
         isNew ? "unconfirmed" : "confirmed",
+        isNew ? parsed.reasoning : null,
       );
       assignedPaths.push(path);
     }
 
-    return Response.json({ assigned: assignedPaths });
+    return Response.json({
+      assigned: assignedPaths,
+      reasoning: parsed.reasoning,
+    });
   } catch (err) {
     return Response.json(
       { error: err instanceof Error ? err.message : "Unknown error" },

@@ -69,8 +69,8 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
     }
 
     const result = await env.DB.prepare(
-      `INSERT INTO tags (user_email, name, path, source, status)
-       VALUES (?, ?, ?, 'user', 'confirmed')
+      `INSERT INTO tags (user_email, name, path, source, status, reasoning)
+       VALUES (?, ?, ?, 'user', 'confirmed', NULL)
        ON CONFLICT(user_email, path) DO UPDATE SET name = excluded.name
        RETURNING *`,
     )

@@ -5,8 +5,9 @@ import type { TagSource, TagStatus } from "../../db/types";
  * Ensure a tag and all its ancestor tags exist in the tags table.
  * Returns the tag id for the given path.
  *
- * source/status are applied only on INSERT; existing rows keep their values.
- * If a leaf path is currently 'rejected', this throws — callers must handle.
+ * source/status/reasoning are applied only on INSERT; existing rows keep their
+ * values. `leafReasoning` is written only to the leaf segment; ancestors are
+ * inserted with reasoning = NULL.
  */
 export async function ensureTagWithAncestors(
   db: EBEnv["DB"],
@@ -14,6 +15,7 @@ export async function ensureTagWithAncestors(
   path: string,
   source: TagSource,
   status: TagStatus,
+  leafReasoning: string | null,
 ): Promise<number> {
   const segments = path.split("/");
   let tagId = 0;
@@ -21,19 +23,19 @@ export async function ensureTagWithAncestors(
   for (let i = 0; i < segments.length; i++) {
     const ancestorPath = segments.slice(0, i + 1).join("/");
     const name = segments[i];
+    const isLeaf = i === segments.length - 1;
+    const reasoning = isLeaf ? leafReasoning : null;
 
-    // INSERT-or-keep: name is the only mutable field on conflict, so source/status
-    // on existing rows are preserved. Newly-inserted segments (incl. ancestors)
-    // adopt the supplied source/status — callers pass 'unconfirmed' for LLM flows
-    // so newly-generated ancestors also require user confirmation.
+    // INSERT-or-keep: only `name` is mutated on conflict, so source/status/reasoning
+    // for existing rows are preserved.
     const tag = await db
       .prepare(
-        `INSERT INTO tags (user_email, name, path, source, status)
-         VALUES (?, ?, ?, ?, ?)
+        `INSERT INTO tags (user_email, name, path, source, status, reasoning)
+         VALUES (?, ?, ?, ?, ?, ?)
          ON CONFLICT(user_email, path) DO UPDATE SET name = excluded.name
          RETURNING id, status`,
       )
-      .bind(userEmail, name, ancestorPath, source, status)
+      .bind(userEmail, name, ancestorPath, source, status, reasoning)
       .first<{ id: number; status: TagStatus }>();
 
     if (tag) tagId = tag.id;
@@ -47,6 +49,9 @@ export async function ensureTagWithAncestors(
  * - Ensures all ancestor tags exist in the tags table (with given source/status on insert).
  * - Removes any ancestor tag links from transaction_tags for this transaction.
  * - Links the tag to the transaction.
+ *
+ * `leafReasoning` is propagated to the leaf segment on insert only; pass null
+ * for non-LLM flows (manual user tagging, system auto-tags).
  */
 export async function assignTagConsolidated(
   db: EBEnv["DB"],
@@ -55,6 +60,7 @@ export async function assignTagConsolidated(
   tagPath: string,
   source: TagSource,
   status: TagStatus,
+  leafReasoning: string | null,
 ): Promise<number> {
   const tagId = await ensureTagWithAncestors(
     db,
@@ -62,6 +68,7 @@ export async function assignTagConsolidated(
     tagPath,
     source,
     status,
+    leafReasoning,
   );
 
   const segments = tagPath.split("/");
