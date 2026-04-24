@@ -156,6 +156,7 @@ test.describe("Bank connection flow via mock", () => {
   test("user imports historical transactions and sees progress", async ({
     page,
   }) => {
+    test.slow(); // import flow processes multiple date ranges via API
     await page.goto("/");
 
     // Connect bank first
