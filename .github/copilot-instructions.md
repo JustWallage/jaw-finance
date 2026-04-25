@@ -68,6 +68,32 @@ Task one: you must keep this document up to date, but only with the broad contex
 - **Mocking:** When `ENVIRONMENT != 'production'` and the request carries `X-Test-Mock-AI: 1`, the endpoint returns a deterministic suggestion instead of calling the model. Production never honours the header.
 - **UI:** The transaction modal exposes an `AI Evaluate` button. The `/tags` page lists Unconfirmed tags first, then Confirmed; clicking a tag shows linked transactions and offers Confirm / Reject / Edit-name actions, with a separate "View Rejected Tags" modal listing the per-user ban list.
 
+## Environment Setup (Cloud Agents)
+
+To set up the entire development environment from scratch (installs pnpm, npm deps, Terraform, Playwright browsers, generates dummy secrets, builds the project, and applies local DB migrations):
+
+```bash
+bash scripts/bootstrap.sh
+```
+
+After bootstrap, all checks and local E2E tests are available:
+- **Static checks:** `pnpm check` (TypeScript + Terraform fmt/validate)
+- **Build:** `pnpm build`
+- **E2E tests locally:** start the dev server in the background, then run tests:
+  ```bash
+  bash scripts/dev-server.sh &
+  sleep 5
+  CI= pnpm test:e2e
+  ```
+  `CI=` must be unset so Playwright targets `localhost:8788` instead of the staging URL. The dev server serves the built `dist/` directory with Pages Functions and local D1.
+
+## Validation Rules
+
+After making any code changes, **always** run these checks before considering the task complete:
+1. `pnpm check` — must pass (TypeScript + Terraform)
+2. `pnpm build` — must succeed
+3. Run the full E2E test suite locally (start dev server → `CI= pnpm test:e2e`) — all tests must pass. If a test fails, investigate and fix before finishing.
+
 Personality: Don't flatter me. Be helpful but very honest. Don't agree with mistakes. Call out potential misses using ❗️.
 
 Rules:
