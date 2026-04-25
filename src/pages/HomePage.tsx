@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { Loader2, RefreshCw, Link as LinkIcon, AlertTriangle, History, User, TrendingUp, TrendingDown, Eye, EyeOff, Sparkles } from "lucide-react";
+import { useState, useCallback, useRef } from "react";
+import { Loader2, RefreshCw, Link as LinkIcon, AlertTriangle, History, User, TrendingUp, TrendingDown, Eye, EyeOff, Sparkles, MessageCircle, ChevronDown, ChevronUp, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,7 +45,7 @@ import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useTags } from "../hooks/useTags";
 import { TagSelector } from "../components/TagSelector";
 import { authHeaders } from "../lib/auth-headers";
-import type { DBTag } from "../../db/types";
+import type { DBTag, DBTransaction } from "../../db/types";
 
 export default function HomePage() {
   const {
@@ -107,6 +108,54 @@ export default function HomePage() {
   const displayedTransactions = transactions;
 
   const [evaluating, setEvaluating] = useState(false);
+
+  const [chatQuestion, setChatQuestion] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatResult, setChatResult] = useState<{
+    summary: string;
+    transactions: DBTransaction[];
+    totalIncome: number;
+    totalExpense: number;
+  } | null>(null);
+  const [chatExpanded, setChatExpanded] = useState(false);
+  const chatInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleChatSubmit(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (!chatQuestion.trim() || chatLoading) return;
+    setChatLoading(true);
+    setChatResult(null);
+    setChatExpanded(false);
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders(),
+          "X-Test-Mock-AI": import.meta.env.VITE_MOCK_AI === "1" ? "1" : "",
+        },
+        body: JSON.stringify({ question: chatQuestion.trim() }),
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        summary: string;
+        transactions: DBTransaction[];
+        totalIncome: number;
+        totalExpense: number;
+      };
+      if (data.error) throw new Error(data.error);
+      setChatResult(data);
+    } catch {
+      setChatResult({
+        summary: "Something went wrong. Please try again.",
+        transactions: [],
+        totalIncome: 0,
+        totalExpense: 0,
+      });
+    } finally {
+      setChatLoading(false);
+    }
+  }
 
   async function handleEvaluate() {
     if (!selectedTxId) return;
@@ -284,6 +333,80 @@ export default function HomePage() {
             </Dialog>
           </div>
         </div>
+
+        {activeConnection && (
+          <form onSubmit={handleChatSubmit} data-testid="chat-form" className="flex gap-2">
+            <Input
+              ref={chatInputRef}
+              placeholder="Ask about your finances..."
+              value={chatQuestion}
+              onChange={(e) => setChatQuestion(e.target.value)}
+              disabled={chatLoading}
+              data-testid="chat-input"
+              className="flex-1"
+            />
+            <Button type="submit" disabled={chatLoading || !chatQuestion.trim()} data-testid="chat-submit">
+              {chatLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            </Button>
+          </form>
+        )}
+
+        {chatResult && (
+          <Card data-testid="chat-result-card">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageCircle className="h-5 w-5" />
+                Answer
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p data-testid="chat-summary" className="text-sm">{chatResult.summary}</p>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span data-testid="chat-total-income" className="text-green-500">
+                  +{chatResult.totalIncome.toFixed(2)} EUR
+                </span>
+                <span data-testid="chat-total-expense" className="text-red-500">
+                  -{chatResult.totalExpense.toFixed(2)} EUR
+                </span>
+              </div>
+              {chatResult.transactions.length > 0 ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setChatExpanded(!chatExpanded)}
+                  data-testid="chat-toggle-transactions"
+                >
+                  {chatExpanded ? <ChevronUp className="h-4 w-4 mr-1" /> : <ChevronDown className="h-4 w-4 mr-1" />}
+                  {chatExpanded ? "Hide" : "View all"} {chatResult.transactions.length} transactions
+                </Button>
+              ) : (
+                <p className="text-xs text-muted-foreground">No transactions matched.</p>
+              )}
+              {chatExpanded && (
+                <Table data-testid="chat-transactions-table">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Counterparty</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {chatResult.transactions.map((tx) => (
+                      <TableRow key={tx.id} data-testid={`chat-tx-${tx.id}`}>
+                        <TableCell className="whitespace-nowrap">{tx.booking_date ?? "—"}</TableCell>
+                        <TableCell>{tx.counterparty_name ?? "—"}</TableCell>
+                        <TableCell className={`text-right whitespace-nowrap ${tx.credit_debit === "CRDT" ? "text-green-500" : "text-red-500"}`}>
+                          {tx.credit_debit === "DBIT" ? "-" : "+"}{tx.amount} {tx.currency}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {error && (
           <Alert variant="destructive" data-testid="error-alert">

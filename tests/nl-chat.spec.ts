@@ -1,0 +1,179 @@
+import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
+
+const isCi = !!process.env.CI;
+
+const userEmailHeader = isCi
+  ? "X-Test-User-Email"
+  : "Cf-Access-Authenticated-User-Email";
+
+test.use({
+  extraHTTPHeaders: async ({}, use, testInfo) => {
+    const slug = testInfo.title
+      .replace(/[^a-z0-9]+/gi, "-")
+      .toLowerCase()
+      .slice(0, 30);
+    const email = `${slug}-${testInfo.workerIndex}-${Date.now()}@jaw-finance.local`;
+    (testInfo as unknown as { _userEmail: string })._userEmail = email;
+    await use({
+      [userEmailHeader]: email,
+      "X-Test-Mock-AI": "1",
+    });
+  },
+});
+
+test.beforeEach(async ({ page, context, request }, testInfo) => {
+  const email = (testInfo as unknown as { _userEmail: string })._userEmail;
+  await context.addInitScript((e: string) => {
+    (window as { __TEST_USER_EMAIL__?: string }).__TEST_USER_EMAIL__ = e;
+  }, email);
+  void page;
+  await request.post("/mock-enable-banking/reset");
+});
+
+async function connectAndRefresh(page: Page) {
+  await page.goto("/");
+  await page.getByTestId("connect-button").click();
+  await page.waitForURL("**/mock-enable-banking/consent**");
+  await page.getByTestId("simulate-success").click();
+  await page.waitForURL("**/?connected=true");
+
+  const refreshBtn = page.getByTestId("refresh-button");
+  await expect(refreshBtn).toBeVisible({ timeout: 5_000 });
+  await refreshBtn.click();
+
+  const table = page.getByTestId("transactions-table");
+  await expect(table).toBeVisible({ timeout: 10_000 });
+  return table;
+}
+
+async function seedFoodTag(request: APIRequestContext) {
+  // Create a "food" tag and assign to first transaction so the mock NL query returns results
+  const txRes = await request.get("/api/bank/transactions");
+  const txData = (await txRes.json()) as { transactions: Array<{ id: number }> };
+  const txId = txData.transactions[0].id;
+
+  const tagRes = await request.post("/api/tags", {
+    data: { name: "food", path: "food" },
+  });
+  const tag = ((await tagRes.json()) as { tag: { id: number } }).tag;
+  await request.put(`/api/transactions/${txId}/tags`, {
+    data: { tag_id: tag.id },
+  });
+  return { txId, tagId: tag.id };
+}
+
+test.describe("Natural language chat", () => {
+  test("chat input is visible after connecting bank", async ({ page }) => {
+    await page.goto("/");
+    // Chat should not be visible without a connection
+    await expect(page.getByTestId("chat-form")).not.toBeVisible();
+
+    await connectAndRefresh(page);
+    await expect(page.getByTestId("chat-form")).toBeVisible();
+    await expect(page.getByTestId("chat-input")).toBeVisible();
+    await expect(page.getByTestId("chat-submit")).toBeVisible();
+  });
+
+  test("submitting a question shows summary card with results", async ({
+    page,
+    request,
+  }) => {
+    await connectAndRefresh(page);
+    await seedFoodTag(request);
+
+    // Type question and submit
+    await page.getByTestId("chat-input").fill("How much did I spend on food?");
+    await page.getByTestId("chat-submit").click();
+
+    // Wait for result card
+    const card = page.getByTestId("chat-result-card");
+    await expect(card).toBeVisible({ timeout: 10_000 });
+
+    // Summary text should be present
+    const summary = card.getByTestId("chat-summary");
+    await expect(summary).toBeVisible();
+    await expect(summary).not.toHaveText("");
+
+    // Totals should be visible
+    await expect(card.getByTestId("chat-total-income")).toBeVisible();
+    await expect(card.getByTestId("chat-total-expense")).toBeVisible();
+  });
+
+  test("clicking 'View all X transactions' expands transaction list", async ({
+    page,
+    request,
+  }) => {
+    await connectAndRefresh(page);
+    await seedFoodTag(request);
+
+    await page.getByTestId("chat-input").fill("Show my food transactions");
+    await page.getByTestId("chat-submit").click();
+
+    const card = page.getByTestId("chat-result-card");
+    await expect(card).toBeVisible({ timeout: 10_000 });
+
+    // Toggle button should reference transaction count
+    const toggleBtn = card.getByTestId("chat-toggle-transactions");
+    await expect(toggleBtn).toBeVisible();
+    await expect(toggleBtn).toContainText("View all");
+    await expect(toggleBtn).toContainText("transaction");
+
+    // Transaction table should not be visible yet
+    await expect(card.getByTestId("chat-transactions-table")).not.toBeVisible();
+
+    // Click to expand
+    await toggleBtn.click();
+    await expect(card.getByTestId("chat-transactions-table")).toBeVisible();
+
+    // Should have at least 1 transaction row
+    const rows = card.locator("[data-testid^='chat-tx-']");
+    await expect(rows.first()).toBeVisible();
+
+    // Click again to collapse
+    await toggleBtn.click();
+    await expect(card.getByTestId("chat-transactions-table")).not.toBeVisible();
+  });
+
+  test("empty question cannot be submitted", async ({ page }) => {
+    await connectAndRefresh(page);
+
+    const submitBtn = page.getByTestId("chat-submit");
+    await expect(submitBtn).toBeDisabled();
+
+    // Type spaces only
+    await page.getByTestId("chat-input").fill("   ");
+    await expect(submitBtn).toBeDisabled();
+  });
+
+  test("chat endpoint returns structured data via API", async ({ page, request }) => {
+    await connectAndRefresh(page);
+    await seedFoodTag(request);
+
+    const res = await request.post("/api/chat", {
+      data: { question: "How much did I spend on food?" },
+    });
+    expect(res.ok()).toBe(true);
+
+    const data = (await res.json()) as {
+      summary: string;
+      transactions: Array<{ id: number }>;
+      totalIncome: number;
+      totalExpense: number;
+    };
+
+    expect(data.summary).toBeTruthy();
+    expect(typeof data.summary).toBe("string");
+    expect(Array.isArray(data.transactions)).toBe(true);
+    expect(typeof data.totalIncome).toBe("number");
+    expect(typeof data.totalExpense).toBe("number");
+  });
+
+  test("chat endpoint rejects empty question", async ({ page, request }) => {
+    await connectAndRefresh(page);
+
+    const res = await request.post("/api/chat", {
+      data: { question: "" },
+    });
+    expect(res.status()).toBe(400);
+  });
+});
