@@ -25,14 +25,15 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
       );
     }
 
-    const result = await executeTagQuery(env.DB, userEmail, queries, body.account_uid);
-
-    if (result.transactions.length === 0 && !body.queries?.length && !body.paths?.length) {
+    const hasValidGlobs = queries.some((q) => q.tagGlobs && q.tagGlobs.length > 0);
+    if (!hasValidGlobs) {
       return Response.json(
         { error: "at least one query with tagGlobs is required" },
         { status: 400 },
       );
     }
+
+    const result = await executeTagQuery(env.DB, userEmail, queries, body.account_uid);
 
     return Response.json(result);
   } catch (err) {
