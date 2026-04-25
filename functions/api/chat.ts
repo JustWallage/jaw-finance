@@ -2,7 +2,7 @@ import { getUserEmail, type EBEnv } from "../lib/enable-banking";
 import { executeTagQuery, type QueryObject } from "../lib/query-utils";
 import type { DBTag } from "../../db/types";
 
-const QUERY_SYSTEM_PROMPT = `You are a financial query translator. The current date and time is: {{CURRENT_DATE}}.
+const QUERY_SYSTEM_PROMPT = `You are a financial query translator. The current date and time is: {{CURRENT_DATETIME}}.
 
 You translate natural language questions about personal finances into structured JSON queries.
 The user has a set of hierarchical tags on their transactions (e.g., "food/groceries", "transport/public/train").
@@ -47,6 +47,11 @@ function parseQueryArray(raw: string): QueryObject[] | null {
   }
 }
 
+function extractAIText(aiResp: unknown): string {
+  const resp = aiResp as { response?: string };
+  return typeof resp.response === "string" ? resp.response : JSON.stringify(aiResp);
+}
+
 function mockQueryResponse(): QueryObject[] {
   return [{ tagGlobs: ["food", "food/*"] }];
 }
@@ -87,7 +92,7 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
       queries = mockQueryResponse();
     } else {
       const systemPrompt = QUERY_SYSTEM_PROMPT
-        .replace("{{CURRENT_DATE}}", new Date().toISOString())
+        .replace("{{CURRENT_DATETIME}}", new Date().toISOString())
         .replace("{{TAGS}}", JSON.stringify(tagPaths));
 
       const aiResp = await env.AI.run("@cf/meta/llama-3-8b-instruct", {
@@ -97,10 +102,7 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
         ],
         max_tokens: 500,
       });
-      const text =
-        typeof (aiResp as { response?: string }).response === "string"
-          ? (aiResp as { response: string }).response
-          : JSON.stringify(aiResp);
+      const text = extractAIText(aiResp);
 
       const parsed = parseQueryArray(text);
       if (!parsed || parsed.length === 0) {
@@ -132,10 +134,7 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
         ],
         max_tokens: 150,
       });
-      summary =
-        typeof (summaryResp as { response?: string }).response === "string"
-          ? (summaryResp as { response: string }).response.trim()
-          : "Here are your results.";
+      summary = extractAIText(summaryResp).trim() || "Here are your results.";
     }
 
     return Response.json({

@@ -340,7 +340,7 @@ export default function HomePage() {
               ref={chatInputRef}
               placeholder="Ask about your finances..."
               value={chatQuestion}
-              onChange={(e) => setChatQuestion((e.target as HTMLInputElement).value)}
+              onChange={(e) => setChatQuestion(e.target.value)}
               disabled={chatLoading}
               data-testid="chat-input"
               className="flex-1"
