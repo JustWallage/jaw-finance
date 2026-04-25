@@ -1,8 +1,15 @@
 import { getUserEmail, type EBEnv } from "../../lib/enable-banking";
 import type { DBTransaction } from "../../../db/types";
 
+interface QueryObject {
+  startDate?: string;
+  endDate?: string;
+  tagGlobs: string[];
+}
+
 interface ByTagsRequest {
-  paths: string[];
+  paths?: string[];
+  queries?: QueryObject[];
   account_uid?: string;
 }
 
@@ -12,19 +19,16 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
     const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
     const body = (await context.request.json()) as ByTagsRequest;
 
-    if (!body.paths || body.paths.length === 0) {
+    // Backward compat: convert legacy `paths` to queries with glob patterns
+    const queries = body.queries
+      ?? (body.paths
+        ? [{ tagGlobs: body.paths.flatMap((p) => [p, p + "/*"]) }]
+        : null);
+    if (!queries || queries.length === 0) {
       return Response.json(
-        { error: "paths array is required" },
+        { error: "queries array is required" },
         { status: 400 },
       );
-    }
-
-    // Build path matching conditions: each path matches exact or children
-    const pathConditions: string[] = [];
-    const pathBindings: string[] = [];
-    for (const p of body.paths) {
-      pathConditions.push("(t.path = ? OR t.path LIKE ?)");
-      pathBindings.push(p, p + "/%");
     }
 
     const baseConditions = ["tx.user_email = ?"];
@@ -35,10 +39,43 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
       baseBindings.push(body.account_uid);
     }
 
-    const where = `${baseConditions.join(" AND ")} AND (${pathConditions.join(" OR ")})`;
-    const allBindings = [...baseBindings, ...pathBindings];
+    // Each query object becomes an OR-ed group
+    const queryGroups: string[] = [];
+    const queryBindings: string[] = [];
 
-    // Fetch matching transactions
+    for (const q of queries) {
+      if (!q.tagGlobs || q.tagGlobs.length === 0) continue;
+
+      const groupParts: string[] = [];
+
+      // Tag matching via GLOB
+      const tagConds = q.tagGlobs.map(() => "t.path GLOB ?");
+      groupParts.push(`(${tagConds.join(" OR ")})`);
+      queryBindings.push(...q.tagGlobs);
+
+      // Date filtering
+      if (q.startDate) {
+        groupParts.push("tx.booking_date >= ?");
+        queryBindings.push(q.startDate);
+      }
+      if (q.endDate) {
+        groupParts.push("tx.booking_date <= ?");
+        queryBindings.push(q.endDate);
+      }
+
+      queryGroups.push(`(${groupParts.join(" AND ")})`);
+    }
+
+    if (queryGroups.length === 0) {
+      return Response.json(
+        { error: "at least one query with tagGlobs is required" },
+        { status: 400 },
+      );
+    }
+
+    const where = `${baseConditions.join(" AND ")} AND (${queryGroups.join(" OR ")})`;
+    const allBindings = [...baseBindings, ...queryBindings];
+
     const txQuery = `
       SELECT DISTINCT tx.* FROM transactions tx
       JOIN transaction_tags tt ON tx.id = tt.transaction_id
@@ -52,7 +89,6 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
       .bind(...allBindings)
       .all<DBTransaction>();
 
-    // Aggregate totals
     const aggQuery = `
       SELECT
         COALESCE(SUM(CASE WHEN tx.credit_debit = 'CRDT' THEN CAST(tx.amount AS REAL) ELSE 0 END), 0) AS total_income,
