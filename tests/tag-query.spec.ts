@@ -47,29 +47,23 @@ test.describe("Tag query - backend", () => {
   test("GLOB matching on tag paths", async ({ page, request }) => {
     await connectAndRefresh(page);
 
-    // Create tags and assign to a transaction
+    // Create tags and assign to transactions
     const txRes = await request.get("/api/bank/transactions");
     const txData = (await txRes.json()) as { transactions: Array<{ id: number }> };
     const txId = txData.transactions[0].id;
+    const txId2 = txData.transactions[1].id;
 
-    await request.post("/api/tags", { data: { name: "food", path: "vacation/spain/food" } });
-    const tagRes = await request.post("/api/tags", { data: { name: "drinks", path: "vacation/italy/drinks" } });
-    const foodTag = ((await (await request.post("/api/tags", { data: { name: "food2", path: "vacation/spain/food" } })).json()) as { error?: string; tag?: { id: number } });
-    // The food tag was already created above, so let's get it from tags list
-    const allTagsRes = await request.get("/api/tags");
-    const allTags = (await allTagsRes.json()) as { tags: Array<{ id: number; path: string }> };
-    const spainFoodTag = allTags.tags.find((t) => t.path === "vacation/spain/food");
-    const italyDrinksTag = allTags.tags.find((t) => t.path === "vacation/italy/drinks");
+    const tag1Res = await request.post("/api/tags", { data: { name: "food", path: "vacation/spain/food" } });
+    const spainFoodTag = ((await tag1Res.json()) as { tag: { id: number } }).tag;
 
-    expect(spainFoodTag).toBeDefined();
-    expect(italyDrinksTag).toBeDefined();
+    const tag2Res = await request.post("/api/tags", { data: { name: "drinks", path: "vacation/italy/drinks" } });
+    const italyDrinksTag = ((await tag2Res.json()) as { tag: { id: number } }).tag;
 
     // Assign vacation/spain/food to first transaction
-    await request.put(`/api/transactions/${txId}/tags`, { data: { tag_id: spainFoodTag!.id } });
+    await request.put(`/api/transactions/${txId}/tags`, { data: { tag_id: spainFoodTag.id } });
 
     // Assign vacation/italy/drinks to second transaction
-    const txId2 = txData.transactions[1].id;
-    await request.put(`/api/transactions/${txId2}/tags`, { data: { tag_id: italyDrinksTag!.id } });
+    await request.put(`/api/transactions/${txId2}/tags`, { data: { tag_id: italyDrinksTag.id } });
 
     // GLOB "vacation/*/food" should match vacation/spain/food but not vacation/italy/drinks
     const res1 = await request.post("/api/transactions/by-tags", {
@@ -268,9 +262,11 @@ test.describe("Tag query - frontend", () => {
     const dialog = page.getByTestId("query-results-dialog");
     await expect(dialog).toBeVisible({ timeout: 10_000 });
 
-    // All visible transactions should be on that date
+    // Modal should be visible (even with 0 results, modal still shows)
     const txItems = dialog.locator("[data-testid^='query-tx-']");
     const count = await txItems.count();
-    expect(count).toBeGreaterThanOrEqual(0); // may be 0 if no income on that date
+    // Income transactions have dates from daysAgo(1) and daysAgo(4), so filtering
+    // to the latest date should return a subset (or zero if no income that day)
+    expect(count).toBeLessThanOrEqual(dates.length);
   });
 });

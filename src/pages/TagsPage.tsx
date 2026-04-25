@@ -393,7 +393,10 @@ function TagQuerySearch() {
           }],
         }),
       });
-      if (!res.ok) throw new Error((await res.json() as { error?: string }).error ?? "Request failed");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error ?? "Request failed");
+      }
       setResult(await res.json() as QueryResult);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
