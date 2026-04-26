@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Loader2, RefreshCw, Link as LinkIcon, AlertTriangle, History, User, TrendingUp, TrendingDown, Eye, EyeOff, Sparkles, MessageCircle, ChevronDown, ChevronUp, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -119,6 +119,14 @@ export default function HomePage() {
   } | null>(null);
   const [chatExpanded, setChatExpanded] = useState(false);
   const chatInputRef = useRef<HTMLInputElement>(null);
+  const [thinkingDots, setThinkingDots] = useState(1);
+
+  useEffect(() => {
+    if (!chatLoading) return;
+    setThinkingDots(1);
+    const interval = setInterval(() => setThinkingDots((d) => (d % 3) + 1), 500);
+    return () => clearInterval(interval);
+  }, [chatLoading]);
 
   async function handleChatSubmit(e?: React.FormEvent) {
     e?.preventDefault();
@@ -349,6 +357,15 @@ export default function HomePage() {
               {chatLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
           </form>
+        )}
+
+        {chatLoading && (
+          <Card data-testid="chat-loading">
+            <CardContent className="flex items-center gap-3 py-6">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Thinking{".".repeat(thinkingDots)}</span>
+            </CardContent>
+          </Card>
         )}
 
         {chatResult && (
