@@ -1,14 +1,33 @@
 #!/usr/bin/env bash
-# Start the local full-stack dev server (wrangler pages dev) on port 8788.
-# Serves the built dist/ directory with Pages Functions and local D1.
+# Starts both dev servers in parallel:
+#   pnpm dev       → Vite on :5173 (live reload)
+#   pnpm dev:pages → Wrangler on :8788 (proxies :5173, serves Pages Functions + local D1)
 #
-# Prerequisites: run scripts/bootstrap.sh first.
-# Stop: kill the process or press Ctrl-C.
+# Full stack available at http://localhost:8788
+# Stop: Ctrl-C or kill the process.
 
-set -euo pipefail
+set -uo pipefail
 cd "$(dirname "$0")/.."
 
 export CLOUDFLARE_API_TOKEN="${CLOUDFLARE_API_TOKEN:-dummy}"
 export WRANGLER_SEND_METRICS=false
 
-exec pnpm exec wrangler pages dev dist --port 8788
+pids=()
+
+cleanup() {
+  for pid in "${pids[@]}"; do
+    kill "$pid" 2>/dev/null || true
+  done
+}
+trap cleanup EXIT INT TERM
+
+pnpm dev &
+pids+=($!)
+
+pnpm dev:pages &
+pids+=($!)
+
+# Block until either server exits; both should run indefinitely
+wait -n "${pids[@]}" || true
+echo "❌ A dev server exited unexpectedly. Check the output above for errors." >&2
+exit 1
