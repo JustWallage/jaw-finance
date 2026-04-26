@@ -11,6 +11,7 @@ Rules:
 5. REJECTED: NEVER suggest any tag found in the REJECTED list.
 6. SYSTEM RESERVED: Do NOT suggest the standalone tags 'income' or 'expense'.
 7. FORMAT: Use lowercase kebab-case segments separated by '/'.
+8. HISTORICAL PATTERNS: Pay strong attention to the historical tag frequencies in the user message. These percentages show how often the user historically applied each tag to transactions with this exact description or counterparty — they are a strong signal of user intent.
 
 CRITICAL: You must output ONLY valid JSON containing a "reasoning" string (explain what the transaction is) and a "tags" array.
 
