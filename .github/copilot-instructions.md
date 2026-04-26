@@ -82,6 +82,7 @@ After setup, all checks and local E2E tests are available:
   CI= pnpm test:e2e
   ```
   `CI=` must be unset so Playwright targets `localhost:8788` instead of the staging URL. `scripts/dev-server.sh` runs `pnpm dev` (Vite on :5173) and `pnpm dev:pages` (Wrangler on :8788) in parallel and exits with an error if either crashes.
+  > ⚠️ If you added new DB migrations, run `pnpm migrate:local` before starting the dev servers or running tests.
 
 ## Validation Rules
 

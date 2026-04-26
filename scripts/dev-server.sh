@@ -9,6 +9,15 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
+check_port() {
+  if lsof -i ":$1" -sTCP:LISTEN -t &>/dev/null; then
+    echo "❌ Port $1 is already in use. Stop the existing process before starting the dev servers." >&2
+    exit 1
+  fi
+}
+check_port 5173
+check_port 8788
+
 export CLOUDFLARE_API_TOKEN="${CLOUDFLARE_API_TOKEN:-dummy}"
 export WRANGLER_SEND_METRICS=false
 
