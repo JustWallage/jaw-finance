@@ -255,6 +255,13 @@ test.describe("AI auto-tagging", () => {
   }) => {
     const table = await connectAndRefresh(page);
 
+    // Switch to All Accounts so the current-account transactions are visible
+    // regardless of which account the switcher defaults to.
+    const switcher = page.getByTestId("account-switcher");
+    await switcher.click();
+    await page.getByTestId("account-option-all").click();
+    await expect(table.locator("tbody tr").filter({ hasText: "Albert Heijn" }).first()).toBeVisible({ timeout: 10_000 });
+
     // Find the "Albert Heijn" / Groceries transaction (MOCK-TX-002)
     const groceriesRow = table
       .locator("tbody tr")
