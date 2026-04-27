@@ -24,22 +24,22 @@ export const onRequestPost: PagesFunction<MockEnv> = async (context) => {
   const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
   const body = (await context.request.json()) as SeedBody;
 
-  for (const tx of body.transactions) {
+  for (const transaction of body.transactions) {
     const row = await env.DB.prepare(
       `INSERT INTO transactions (account_uid, amount, currency, credit_debit, status, booking_date, counterparty_name, remittance_info, user_email)
        VALUES ('mock-seed', '0.00', 'EUR', 'DBIT', 'BOOK', date('now'), ?, ?, ?)
        RETURNING id`,
     )
-      .bind(tx.counterparty_name ?? null, tx.remittance_info ?? null, userEmail)
+      .bind(transaction.counterparty_name ?? null, transaction.remittance_info ?? null, userEmail)
       .first<{ id: number }>();
 
-    const txId = row?.id;
-    if (!txId) continue;
+    const transactionId = row?.id;
+    if (!transactionId) continue;
 
-    for (const tagPath of tx.tag_paths) {
+    for (const tagPath of transaction.tag_paths) {
       await assignTagConsolidated(
         env.DB,
-        txId,
+        transactionId,
         userEmail,
         tagPath,
         "user",

@@ -261,8 +261,8 @@ test.describe("AI auto-tagging", () => {
       .filter({ hasText: "Albert Heijn" })
       .first();
     const testId = await groceriesRow.getAttribute("data-testid");
-    const txId = Number(testId?.replace("tx-row-", ""));
-    expect(txId).toBeGreaterThan(0);
+    const transactionId = Number(testId?.replace("tx-row-", ""));
+    expect(transactionId).toBeGreaterThan(0);
 
     // Seed 9 historical transactions with food/groceries + 1 with noise (10% → filtered)
     await request.post("/mock-enable-banking/seed-historical", {
@@ -284,7 +284,7 @@ test.describe("AI auto-tagging", () => {
 
     // Call evaluate in mock mode and request the built prompt back
     const evalRes = await request.post(
-      `/api/transactions/${txId}/evaluate`,
+      `/api/transactions/${transactionId}/evaluate`,
       { headers: { "X-Test-Return-Prompt": "1" } },
     );
     expect(evalRes.ok()).toBe(true);

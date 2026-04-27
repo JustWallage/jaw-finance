@@ -13,9 +13,9 @@ interface ParsedAIResponse {
   tags: string[];
 }
 
-interface HistoricalFreq {
+interface HistoricalFrequency {
   path: string;
-  pct: number;
+  percentage: number;
 }
 
 function isReservedAutoPath(p: string): boolean {
@@ -38,20 +38,20 @@ function formatTagForPrompt(path: string, reasoning: string | null): string {
 /** Query D1 for tag frequency distribution across transactions matching a field value.
  *  Returns tags appearing in strictly more than 10% of matching transactions.
  *  `field` is validated against a known-safe whitelist before interpolation. */
-async function fetchHistoricalTagFreqs(
+async function fetchHistoricalTagFrequencies(
   db: D1Database,
   field: "remittance_info" | "counterparty_name",
   value: string,
-  excludeTxId: number,
+  excludeTransactionId: number,
   userEmail: string,
-): Promise<HistoricalFreq[]> {
+): Promise<HistoricalFrequency[]> {
   const ALLOWED_FIELDS = new Set(["remittance_info", "counterparty_name"]);
   if (!ALLOWED_FIELDS.has(field)) return [];
   const totalRow = await db
     .prepare(
       `SELECT COUNT(*) as cnt FROM transactions WHERE ${field} = ? AND user_email = ? AND id != ?`,
     )
-    .bind(value, userEmail, excludeTxId)
+    .bind(value, userEmail, excludeTransactionId)
     .first<{ cnt: number }>();
 
   const total = totalRow?.cnt ?? 0;
@@ -67,13 +67,13 @@ async function fetchHistoricalTagFreqs(
          AND t.source != 'system' AND t.status != 'rejected'
        GROUP BY t.path`,
     )
-    .bind(value, userEmail, excludeTxId)
+    .bind(value, userEmail, excludeTransactionId)
     .all<{ path: string; cnt: number }>();
 
   return tagRows.results
-    .map((r) => ({ path: r.path, pct: Math.round((r.cnt / total) * 100) }))
-    .filter((r) => r.pct > 10)
-    .sort((a, b) => b.pct - a.pct);
+    .map((r) => ({ path: r.path, percentage: Math.round((r.cnt / total) * 100) }))
+    .filter((r) => r.percentage > 10)
+    .sort((a, b) => b.percentage - a.percentage);
 }
 
 function buildPrompt(
@@ -81,26 +81,26 @@ function buildPrompt(
   alreadyAssigned: string[],
   existingFormatted: string[],
   rejected: string[],
-  descFreqs: HistoricalFreq[],
-  cpFreqs: HistoricalFreq[] | null, // null = counterparty section omitted
+  descriptionFrequencies: HistoricalFrequency[],
+  counterpartyFrequencies: HistoricalFrequency[] | null, // null = counterparty section omitted
 ): string {
   const exampleFormatted = exampleTagList.map((e) =>
     formatTagForPrompt(e.path, e.reasoning),
   );
   const existingPlusExamples = [...existingFormatted, ...exampleFormatted];
 
-  const descBlock =
-    descFreqs.length > 0
-      ? descFreqs.map((f) => `${f.path} (${f.pct}%)`).join("\n")
+  const descriptionBlock =
+    descriptionFrequencies.length > 0
+      ? descriptionFrequencies.map((f) => `${f.path} (${f.percentage}%)`).join("\n")
       : "None";
 
-  let historicalSection = `Tags of previous transactions with the exact same description:\n${descBlock}`;
-  if (cpFreqs !== null) {
-    const cpBlock =
-      cpFreqs.length > 0
-        ? cpFreqs.map((f) => `${f.path} (${f.pct}%)`).join("\n")
+  let historicalSection = `Tags of previous transactions with the exact same description:\n${descriptionBlock}`;
+  if (counterpartyFrequencies !== null) {
+    const counterpartyBlock =
+      counterpartyFrequencies.length > 0
+        ? counterpartyFrequencies.map((f) => `${f.path} (${f.percentage}%)`).join("\n")
         : "None";
-    historicalSection += `\n\nTags of previous transactions with the exact same counterparty name:\n${cpBlock}`;
+    historicalSection += `\n\nTags of previous transactions with the exact same counterparty name:\n${counterpartyBlock}`;
   }
 
   return `Transaction:
@@ -210,8 +210,8 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
       .filter((p) => !isReservedAutoPath(p));
 
     // Historical RAG: tag frequency across past transactions with same description/counterparty.
-    const descFreqs = tx.remittance_info
-      ? await fetchHistoricalTagFreqs(
+    const descriptionFrequencies = tx.remittance_info
+      ? await fetchHistoricalTagFrequencies(
           env.DB,
           "remittance_info",
           tx.remittance_info,
@@ -219,9 +219,9 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
           userEmail,
         )
       : [];
-    const cpFreqs =
+    const counterpartyFrequencies =
       tx.counterparty_name?.trim()
-        ? await fetchHistoricalTagFreqs(
+        ? await fetchHistoricalTagFrequencies(
             env.DB,
             "counterparty_name",
             tx.counterparty_name,
@@ -235,8 +235,8 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
       alreadyAssigned,
       existingFormatted,
       rejected,
-      descFreqs,
-      cpFreqs,
+      descriptionFrequencies,
+      counterpartyFrequencies,
     );
 
     // Mock branch for non-production E2E. Production NEVER honours the header.
