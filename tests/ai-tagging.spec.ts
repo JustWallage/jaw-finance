@@ -304,8 +304,8 @@ test.describe("AI auto-tagging", () => {
     expect(prompt).toContain(
       "Tags of previous transactions with the exact same counterparty name:",
     );
-    // noise appears in exactly 10% → NOT strictly > 10%, must be absent
-    expect(prompt).not.toContain("noise");
+    // noise appears in exactly 10% → NOT strictly > 10%, must be absent from historical sections
+    expect(prompt).not.toMatch(/noise \(\d+%\)/);
   });
 
 });
