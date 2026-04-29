@@ -1,0 +1,61 @@
+name: "Copilot Setup Steps"
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.12"
+
+      - name: Terraform init (providers only, no backend)
+        run: cd iac && terraform init -backend=false -input=false
+
+      - name: Strip remote AI binding from wrangler.toml
+        run: sed -i '/^\[ai\]$/,/^binding = "AI"$/d' wrangler.toml
+
+      - name: Generate dummy .dev.vars for mock banking
+        run: |
+          DUMMY_KEY=$(openssl genrsa 2048 2>/dev/null | openssl pkcs8 -topk8 -nocrypt 2>/dev/null)
+          cat > .dev.vars <<VARS
+          ENABLE_BANKING_APP_ID=dummy-app-id
+          ENABLE_BANKING_SECRET="${DUMMY_KEY}"
+          VARS
+
+      - name: Build
+        run: pnpm build
+
+      - name: Apply local DB migrations
+        run: pnpm migrate:local
+
+      - name: Install Playwright browsers
+        run: pnpm playwright:install
