@@ -248,4 +248,64 @@ test.describe("AI auto-tagging", () => {
       rejectedDialog.getByTestId("rejected-badge-ai-mock/new-parent/new-leaf"),
     ).toBeVisible();
   });
+
+  test("Historical RAG: prompt includes tag frequencies and filters out <=10% tags", async ({
+    page,
+    request,
+  }) => {
+    const table = await connectAndRefresh(page);
+
+    // Switch to All Accounts so the current-account transactions are visible
+    // regardless of which account the switcher defaults to.
+    const switcher = page.getByTestId("account-switcher");
+    await switcher.click();
+    await page.getByTestId("account-option-all").click();
+    await expect(table.locator("tbody tr").filter({ hasText: "Albert Heijn" }).first()).toBeVisible({ timeout: 10_000 });
+
+    // Find the "Albert Heijn" / Groceries transaction (MOCK-TX-002)
+    const groceriesRow = table
+      .locator("tbody tr")
+      .filter({ hasText: "Albert Heijn" })
+      .first();
+    const testId = await groceriesRow.getAttribute("data-testid");
+    const transactionId = Number(testId?.replace("tx-row-", ""));
+    expect(transactionId).toBeGreaterThan(0);
+
+    // Seed 9 historical transactions with food/groceries + 1 with noise (10% → filtered)
+    await request.post("/mock-enable-banking/seed-historical", {
+      data: {
+        transactions: [
+          ...Array.from({ length: 9 }, () => ({
+            remittance_info: "Groceries",
+            counterparty_name: "Albert Heijn",
+            tag_paths: ["food/groceries"],
+          })),
+          {
+            remittance_info: "Groceries",
+            counterparty_name: "Albert Heijn",
+            tag_paths: ["noise"],
+          },
+        ],
+      },
+    });
+
+    // Call evaluate in mock mode and request the built prompt back
+    const evalRes = await request.post(
+      `/api/transactions/${transactionId}/evaluate`,
+      { headers: { "X-Test-Return-Prompt": "1" } },
+    );
+    expect(evalRes.ok()).toBe(true);
+    const evalData = (await evalRes.json()) as { prompt?: string };
+    const prompt = evalData.prompt ?? "";
+
+    // Description block: food/groceries appears in 9/10 = 90% → included
+    expect(prompt).toContain("food/groceries (90%)");
+    // Counterparty block: same distribution → also 90%
+    expect(prompt).toContain(
+      "Tags of previous transactions with the exact same counterparty name:",
+    );
+    // noise appears in exactly 10% → NOT strictly > 10%, must be absent from historical sections
+    expect(prompt).not.toMatch(/noise \(\d+%\)/);
+  });
+
 });
