@@ -337,6 +337,7 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
         : {}),
     });
   } catch (err) {
+    console.error("[evaluate] Error:", err);
     return Response.json(
       { error: err instanceof Error ? err.message : "Unknown error" },
       { status: 500 },

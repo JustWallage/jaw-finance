@@ -28,7 +28,10 @@ Output ONLY the JSON array.`;
 const SUMMARY_SYSTEM_PROMPT = `You are a friendly financial assistant. Given the user's original question and query results, write a single short sentence summarizing the answer. Use the exact numbers provided. Do not output JSON. Only plain text.`;
 
 function stripMarkdownCodeBlocks(text: string): string {
-  return text.replace(/```(?:json)?\s*/gi, "").replace(/```/g, "").trim();
+  return text
+    .replace(/```(?:json)?\s*/gi, "")
+    .replace(/```/g, "")
+    .trim();
 }
 
 function parseQueryArray(raw: string): QueryObject[] | null {
@@ -40,7 +43,9 @@ function parseQueryArray(raw: string): QueryObject[] | null {
     if (!Array.isArray(parsed)) return null;
     return parsed.filter(
       (q: unknown): q is QueryObject =>
-        typeof q === "object" && q !== null && Array.isArray((q as QueryObject).tagGlobs),
+        typeof q === "object" &&
+        q !== null &&
+        Array.isArray((q as QueryObject).tagGlobs),
     );
   } catch {
     return null;
@@ -49,14 +54,20 @@ function parseQueryArray(raw: string): QueryObject[] | null {
 
 function extractAIText(aiResp: unknown): string {
   const resp = aiResp as { response?: string };
-  return typeof resp.response === "string" ? resp.response : JSON.stringify(aiResp);
+  return typeof resp.response === "string"
+    ? resp.response
+    : JSON.stringify(aiResp);
 }
 
 function mockQueryResponse(): QueryObject[] {
   return [{ tagGlobs: ["food", "food/*"] }];
 }
 
-function mockSummaryResponse(count: number, totalIncome: number, totalExpense: number): string {
+function mockSummaryResponse(
+  count: number,
+  totalIncome: number,
+  totalExpense: number,
+): string {
   return totalExpense > 0
     ? `You spent ${totalExpense.toFixed(2)} EUR on food across ${count} transactions.`
     : `Found ${count} transactions with ${totalIncome.toFixed(2)} EUR income and ${totalExpense.toFixed(2)} EUR expenses.`;
@@ -68,7 +79,11 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
     const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
     const body = (await context.request.json()) as { question: string };
 
-    if (!body.question || typeof body.question !== "string" || !body.question.trim()) {
+    if (
+      !body.question ||
+      typeof body.question !== "string" ||
+      !body.question.trim()
+    ) {
       return Response.json({ error: "question is required" }, { status: 400 });
     }
 
@@ -91,9 +106,10 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
     if (useMock) {
       queries = mockQueryResponse();
     } else {
-      const systemPrompt = QUERY_SYSTEM_PROMPT
-        .replace("{{CURRENT_DATETIME}}", new Date().toISOString())
-        .replace("{{TAGS}}", JSON.stringify(tagPaths));
+      const systemPrompt = QUERY_SYSTEM_PROMPT.replace(
+        "{{CURRENT_DATETIME}}",
+        new Date().toISOString(),
+      ).replace("{{TAGS}}", JSON.stringify(tagPaths));
 
       const aiResp = await env.AI.run("@cf/meta/llama-3-8b-instruct", {
         messages: [
@@ -107,7 +123,8 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
       const parsed = parseQueryArray(text);
       if (!parsed || parsed.length === 0) {
         return Response.json({
-          summary: "I couldn't understand that question. Try asking about your spending on specific categories or time periods.",
+          summary:
+            "I couldn't understand that question. Try asking about your spending on specific categories or time periods.",
           transactions: [],
           totalIncome: 0,
           totalExpense: 0,
@@ -122,7 +139,11 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
     // Pass 2: Generate summary
     let summary: string;
     if (useMock) {
-      summary = mockSummaryResponse(result.transactions.length, result.totalIncome, result.totalExpense);
+      summary = mockSummaryResponse(
+        result.transactions.length,
+        result.totalIncome,
+        result.totalExpense,
+      );
     } else {
       const summaryResp = await env.AI.run("@cf/meta/llama-3-8b-instruct", {
         messages: [
@@ -144,6 +165,7 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
       totalExpense: result.totalExpense,
     });
   } catch (err) {
+    console.error("[chat] Error:", err);
     return Response.json(
       { error: err instanceof Error ? err.message : "Unknown error" },
       { status: 500 },
