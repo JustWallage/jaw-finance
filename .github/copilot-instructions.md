@@ -76,6 +76,29 @@ Task one: you must keep this document up to date, but only with the broad contex
   - **Frontend:** A chat input on the Homepage lets users ask questions. Results appear in a Card with the AI summary, income/expense totals, and an expandable transaction list.
 - **UI:** The transaction modal exposes an `AI Evaluate` button. The `/tags` page lists Unconfirmed tags first, then Confirmed; clicking a tag shows linked transactions and offers Confirm / Reject / Edit-name actions, with a separate "View Rejected Tags" modal listing the per-user ban list.
 
+## Environment Setup (Cloud Agents)
+
+The Copilot Coding Agent environment is set up automatically via `.github/copilot-setup-steps.yml` before work starts (installs pnpm, npm deps, Terraform, Playwright browsers, generates dummy secrets, builds the project, and applies local DB migrations).
+
+After setup, all checks and local E2E tests are available:
+- **Static checks:** `pnpm check` (TypeScript + Terraform fmt/validate)
+- **Build:** `pnpm build`
+- **E2E tests locally:** start both dev servers in the background, then run tests:
+  ```bash
+  bash scripts/dev-server.sh &
+  sleep 5
+  CI= pnpm test:e2e
+  ```
+  `CI=` must be unset so Playwright targets `localhost:8788` instead of the staging URL. `scripts/dev-server.sh` runs `pnpm dev` (Vite on :5173) and `pnpm dev:pages` (Wrangler on :8788) in parallel and exits with an error if either crashes.
+  > ⚠️ If you added new DB migrations, run `pnpm migrate:local` before starting the dev servers or running tests.
+
+## Validation Rules
+
+After making any code changes, **always** run these checks before considering the task complete:
+1. `pnpm check` — must pass (TypeScript + Terraform)
+2. `pnpm build` — must succeed
+3. Run the full E2E test suite locally (start dev servers → `CI= pnpm test:e2e`) — all tests must pass. If a test fails, investigate and fix before finishing.
+
 Personality: Don't flatter me. Be helpful but very honest. Don't agree with mistakes. Call out potential misses using ❗️.
 
 Rules:

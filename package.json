@@ -16,7 +16,8 @@
     "check": "pnpm run check:ts && pnpm run check:tf:fmt && pnpm run check:tf",
     "test:e2e": "playwright test",
     "prepare": "husky",
-    "playwright:install": "playwright install --with-deps chromium"
+    "playwright:install": "playwright install --with-deps chromium",
+    "wrangler:login": "wrangler login"
   },
   "keywords": [],
   "author": "",
