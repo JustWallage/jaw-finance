@@ -130,6 +130,9 @@ jobs:
   deploy-test:
     needs: [terraform, set-secrets]
     uses: ./.github/workflows/staging-e2e.yml
+    permissions:
+      contents: read
+      deployments: write
     with:
       staging_db_id: ${{ needs.terraform.outputs.staging_db_id }}
       prod_db_id: ${{ needs.terraform.outputs.prod_db_id }}
@@ -138,6 +141,9 @@ jobs:
   deploy-prod:
     needs: [deploy-test, terraform]
     uses: ./.github/workflows/deploy-env.yml
+    permissions:
+      contents: read
+      deployments: write
     with:
       branch: main
       environment: production

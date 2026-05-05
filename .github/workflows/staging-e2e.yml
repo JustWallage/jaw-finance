@@ -22,6 +22,9 @@ concurrency:
 jobs:
   deploy-staging:
     uses: ./.github/workflows/deploy-env.yml
+    permissions:
+      contents: read
+      deployments: write
     with:
       branch: staging
       environment: preview
