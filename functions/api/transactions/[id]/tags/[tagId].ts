@@ -6,6 +6,16 @@ export const onRequestDelete: PagesFunction<EBEnv> = async (context) => {
     const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
     const params = context.params as { id: string; tagId: string };
 
+    // Verify transaction belongs to user
+    const tx = await env.DB.prepare(
+      "SELECT id FROM transactions WHERE id = ? AND user_email = ?",
+    )
+      .bind(params.id, userEmail)
+      .first();
+    if (!tx) {
+      return Response.json({ error: "Transaction not found" }, { status: 404 });
+    }
+
     // Verify tag belongs to user
     const tag = await env.DB.prepare(
       "SELECT id FROM tags WHERE id = ? AND user_email = ?",

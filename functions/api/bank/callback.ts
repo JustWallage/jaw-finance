@@ -56,10 +56,9 @@ export const onRequestGet: PagesFunction<EBEnv> = async (context) => {
       await env.DB.prepare(
         `INSERT INTO bank_connections (session_id, account_uid, aspsp_name, aspsp_country, iban, valid_until, user_email)
          VALUES (?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(account_uid) DO UPDATE SET
+         ON CONFLICT(account_uid, user_email) DO UPDATE SET
            session_id = excluded.session_id,
            valid_until = excluded.valid_until,
-           user_email = excluded.user_email,
            updated_at = CURRENT_TIMESTAMP`,
       )
         .bind(

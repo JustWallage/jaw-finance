@@ -8,6 +8,15 @@ export const onRequestGet: PagesFunction<EBEnv> = async (context) => {
     const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
     const txId = (context.params as { id: string }).id;
 
+    const tx = await env.DB.prepare(
+      "SELECT id FROM transactions WHERE id = ? AND user_email = ?",
+    )
+      .bind(txId, userEmail)
+      .first();
+    if (!tx) {
+      return Response.json({ error: "Transaction not found" }, { status: 404 });
+    }
+
     const result = await env.DB.prepare(
       `SELECT t.* FROM tags t
        JOIN transaction_tags tt ON t.id = tt.tag_id
@@ -35,6 +44,15 @@ export const onRequestPut: PagesFunction<EBEnv> = async (context) => {
 
     if (!body.tag_id) {
       return Response.json({ error: "tag_id is required" }, { status: 400 });
+    }
+
+    const tx = await env.DB.prepare(
+      "SELECT id FROM transactions WHERE id = ? AND user_email = ?",
+    )
+      .bind(txId, userEmail)
+      .first();
+    if (!tx) {
+      return Response.json({ error: "Transaction not found" }, { status: 404 });
     }
 
     // Look up the tag to get its path
