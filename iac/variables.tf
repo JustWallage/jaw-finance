@@ -9,8 +9,8 @@ variable "cloudflare_api_token" {
   description = "Cloudflare API Token"
 }
 
-variable "allowed_emails" {
-  type        = list(string)
-  default     = ["just+cloudflare@wallage.nl"]
-  description = "Email addresses allowed through Access OTP"
-}
+# variable "allowed_emails" {
+#   type        = list(string)
+#   default     = ["just+cloudflare@wallage.nl"]
+#   description = "Email addresses allowed through Access OTP"
+# }

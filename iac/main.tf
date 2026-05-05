@@ -84,9 +84,10 @@ resource "cloudflare_zero_trust_access_application" "jaw_finance" {
     name     = "Allow email OTP"
     decision = "allow"
     include = [{
-      email = {
-        email = var.allowed_emails[0]
-      }
+      everyone = {}
+      # email = {
+      #   email = var.allowed_emails[0]
+      # }
     }]
   }]
 }

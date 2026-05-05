@@ -240,16 +240,16 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
     await env.DB.prepare(
       `UPDATE bank_connections
        SET oldest_synced_date = ?
-       WHERE account_uid = ?
+       WHERE account_uid = ? AND user_email = ?
          AND (oldest_synced_date IS NULL OR oldest_synced_date > ?)`,
     )
-      .bind(body.date_from, body.account_uid, body.date_from)
+      .bind(body.date_from, body.account_uid, userEmail, body.date_from)
       .run();
 
     const updated = await env.DB.prepare(
-      "SELECT oldest_synced_date FROM bank_connections WHERE account_uid = ?",
+      "SELECT oldest_synced_date FROM bank_connections WHERE account_uid = ? AND user_email = ?",
     )
-      .bind(body.account_uid)
+      .bind(body.account_uid, userEmail)
       .first<{ oldest_synced_date: string | null }>();
 
     return Response.json({
