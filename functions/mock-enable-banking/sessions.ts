@@ -40,28 +40,28 @@ export const onRequestPost: PagesFunction<MockEnv> = async (context) => {
     .run();
 
   const sessionId = "mock-session-id-001";
-  const userPrefix = row.state
-    ? (() => {
-        try {
-          const s = JSON.parse(atob(row.state)) as { email?: string };
-          return s.email?.split("@")[0] ?? "unknown";
-        } catch {
-          return "unknown";
-        }
-      })()
-    : "unknown";
+  let userEmail: string | null = null;
+  let userPrefix = "unknown";
+  try {
+    const s = JSON.parse(atob(row.state ?? "")) as { email?: string };
+    userEmail = s.email ?? null;
+    userPrefix = s.email?.split("@")[0] ?? "unknown";
+  } catch {
+    // state may be absent
+  }
   const accountUid1 = `mock-account-uid-${userPrefix}`;
   const iban1 = "NL00MOCK0123456789";
   const accountUid2 = `mock-account-uid-${userPrefix}-savings`;
 
   await env.DB.batch([
     env.DB.prepare(
-      `INSERT INTO mock_enable_banking_sessions (session_id, account_uid, aspsp_name, aspsp_country, iban, valid_until)
-       VALUES (?, ?, ?, ?, ?, ?)
+      `INSERT INTO mock_enable_banking_sessions (session_id, account_uid, aspsp_name, aspsp_country, iban, valid_until, user_email)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(session_id, account_uid) DO UPDATE SET
          valid_until = excluded.valid_until,
          aspsp_name = excluded.aspsp_name,
-         aspsp_country = excluded.aspsp_country`,
+         aspsp_country = excluded.aspsp_country,
+         user_email = excluded.user_email`,
     ).bind(
       sessionId,
       accountUid1,
@@ -69,14 +69,16 @@ export const onRequestPost: PagesFunction<MockEnv> = async (context) => {
       row.aspsp_country,
       iban1,
       row.valid_until,
+      userEmail,
     ),
     env.DB.prepare(
-      `INSERT INTO mock_enable_banking_sessions (session_id, account_uid, aspsp_name, aspsp_country, iban, valid_until)
-       VALUES (?, ?, ?, ?, ?, ?)
+      `INSERT INTO mock_enable_banking_sessions (session_id, account_uid, aspsp_name, aspsp_country, iban, valid_until, user_email)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(session_id, account_uid) DO UPDATE SET
          valid_until = excluded.valid_until,
          aspsp_name = excluded.aspsp_name,
-         aspsp_country = excluded.aspsp_country`,
+         aspsp_country = excluded.aspsp_country,
+         user_email = excluded.user_email`,
     ).bind(
       sessionId,
       accountUid2,
@@ -84,6 +86,7 @@ export const onRequestPost: PagesFunction<MockEnv> = async (context) => {
       row.aspsp_country,
       null,
       row.valid_until,
+      userEmail,
     ),
   ]);
 

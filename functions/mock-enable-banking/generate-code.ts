@@ -21,9 +21,17 @@ export const onRequestPost: PagesFunction<MockEnv> = async (context) => {
   const body = (await context.request.json()) as GenerateCodeBody;
   const code = crypto.randomUUID();
 
+  let userEmail: string | null = null;
+  try {
+    const s = JSON.parse(atob(body.state)) as { email?: string };
+    userEmail = s.email ?? null;
+  } catch {
+    // state may be absent in non-test flows
+  }
+
   await env.DB.prepare(
-    `INSERT INTO mock_enable_banking_auth_codes (code, aspsp_name, aspsp_country, redirect_url, valid_until, state)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO mock_enable_banking_auth_codes (code, aspsp_name, aspsp_country, redirect_url, valid_until, state, user_email)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
   )
     .bind(
       code,
@@ -32,6 +40,7 @@ export const onRequestPost: PagesFunction<MockEnv> = async (context) => {
       body.redirect_url,
       body.valid_until,
       body.state,
+      userEmail,
     )
     .run();
 

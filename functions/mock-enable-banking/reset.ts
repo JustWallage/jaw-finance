@@ -1,4 +1,4 @@
-import type { EBEnv } from "../lib/enable-banking";
+import { getUserEmail, type EBEnv } from "../lib/enable-banking";
 
 interface MockEnv extends EBEnv {
   ENVIRONMENT?: string;
@@ -10,13 +10,25 @@ export const onRequestPost: PagesFunction<MockEnv> = async (context) => {
   }
 
   const { env } = context;
+  const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
+
   await env.DB.batch([
-    env.DB.prepare("DELETE FROM transaction_tags"),
-    env.DB.prepare("DELETE FROM tags"),
-    env.DB.prepare("DELETE FROM mock_enable_banking_auth_codes"),
-    env.DB.prepare("DELETE FROM mock_enable_banking_sessions"),
-    env.DB.prepare("DELETE FROM transactions"),
-    env.DB.prepare("DELETE FROM bank_connections"),
+    env.DB.prepare(
+      "DELETE FROM transaction_tags WHERE transaction_id IN (SELECT id FROM transactions WHERE user_email = ?)",
+    ).bind(userEmail),
+    env.DB.prepare("DELETE FROM tags WHERE user_email = ?").bind(userEmail),
+    env.DB.prepare(
+      "DELETE FROM mock_enable_banking_auth_codes WHERE user_email = ?",
+    ).bind(userEmail),
+    env.DB.prepare(
+      "DELETE FROM mock_enable_banking_sessions WHERE user_email = ?",
+    ).bind(userEmail),
+    env.DB.prepare("DELETE FROM transactions WHERE user_email = ?").bind(
+      userEmail,
+    ),
+    env.DB.prepare("DELETE FROM bank_connections WHERE user_email = ?").bind(
+      userEmail,
+    ),
   ]);
 
   return Response.json({ message: "OK" });

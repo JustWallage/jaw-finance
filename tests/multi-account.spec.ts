@@ -1,7 +1,30 @@
 import { test, expect, type Page } from "@playwright/test";
 
+const isCi = !!process.env.CI;
+
+const userEmailHeader = isCi
+  ? "X-Test-User-Email"
+  : "Cf-Access-Authenticated-User-Email";
+
+test.use({
+  extraHTTPHeaders: async ({}, use, testInfo) => {
+    const slug = testInfo.title
+      .replace(/[^a-z0-9]+/gi, "-")
+      .toLowerCase()
+      .slice(0, 30);
+    const email = `${slug}-${testInfo.workerIndex}-${Date.now()}@jaw-finance.local`;
+    (testInfo as unknown as { _userEmail: string })._userEmail = email;
+    await use({ [userEmailHeader]: email });
+  },
+});
+
 test.describe("Multi-account support", () => {
-  test.beforeEach(async ({ request }) => {
+  test.beforeEach(async ({ page, context, request }, testInfo) => {
+    const email = (testInfo as unknown as { _userEmail: string })._userEmail;
+    await context.addInitScript((e: string) => {
+      (window as { __TEST_USER_EMAIL__?: string }).__TEST_USER_EMAIL__ = e;
+    }, email);
+    void page;
     await request.post("/mock-enable-banking/reset");
   });
 
