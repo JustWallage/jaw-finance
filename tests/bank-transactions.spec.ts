@@ -41,6 +41,9 @@ test.describe("Bank connection flow via mock", () => {
     // Click connect
     await connectBtn.click();
 
+    // Select a bank from the dialog
+    await page.getByTestId("bank-option-bunq").click();
+
     // Should be redirected to mock consent page
     await page.waitForURL("**/mock-enable-banking/consent**");
     await expect(page.locator("h1")).toContainText("Mock Bank Authentication");
@@ -67,12 +70,34 @@ test.describe("Bank connection flow via mock", () => {
     await expect(table).toContainText("42.50");
   });
 
+  test("bank selection dialog shows banks and supports search", async ({
+    page,
+  }) => {
+    await page.goto("/");
+
+    await page.getByTestId("connect-button").click();
+
+    // Dialog should open with bank list
+    const searchInput = page.getByTestId("bank-search-input");
+    await expect(searchInput).toBeVisible();
+    await expect(page.getByTestId("bank-option-bunq")).toBeVisible();
+    await expect(page.getByTestId("bank-option-ING")).toBeVisible();
+    await expect(page.getByTestId("bank-option-Revolut")).toBeVisible();
+
+    // Search should filter the list
+    await searchInput.fill("Rabo");
+    await expect(page.getByTestId("bank-option-Rabobank")).toBeVisible();
+    await expect(page.getByTestId("bank-option-bunq")).toBeHidden();
+    await expect(page.getByTestId("bank-option-ING")).toBeHidden();
+  });
+
   test("user cancels bank connection and sees error", async ({ page }) => {
     await page.goto("/");
 
     const connectBtn = page.getByTestId("connect-button");
     await expect(connectBtn).toBeVisible();
     await connectBtn.click();
+    await page.getByTestId("bank-option-bunq").click();
 
     await page.waitForURL("**/mock-enable-banking/consent**");
     await page.getByTestId("simulate-cancel").click();
@@ -92,6 +117,7 @@ test.describe("Bank connection flow via mock", () => {
     const connectBtn = page.getByTestId("connect-button");
     await expect(connectBtn).toBeVisible();
     await connectBtn.click();
+    await page.getByTestId("bank-option-bunq").click();
 
     await page.waitForURL("**/mock-enable-banking/consent**");
     await page.getByTestId("simulate-failure").click();
@@ -145,6 +171,7 @@ test.describe("Bank connection flow via mock", () => {
 
     // First connection: connect and refresh
     await page.getByTestId("connect-button").click();
+    await page.getByTestId("bank-option-bunq").click();
     await page.waitForURL("**/mock-enable-banking/consent**");
     await page.getByTestId("simulate-success").click();
     await page.waitForURL("**/?connected=true");
@@ -162,6 +189,7 @@ test.describe("Bank connection flow via mock", () => {
     // Second connection: open user menu and reconnect
     await page.getByTestId("user-menu-trigger").click();
     await page.getByTestId("reconnect-button").click();
+    await page.getByTestId("bank-option-bunq").click();
     await page.waitForURL("**/mock-enable-banking/consent**");
     await page.getByTestId("simulate-success").click();
     await page.waitForURL("**/?connected=true");
@@ -185,6 +213,7 @@ test.describe("Bank connection flow via mock", () => {
 
     // Connect bank first
     await page.getByTestId("connect-button").click();
+    await page.getByTestId("bank-option-bunq").click();
     await page.waitForURL("**/mock-enable-banking/consent**");
     await page.getByTestId("simulate-success").click();
     await page.waitForURL("**/?connected=true");
@@ -226,6 +255,7 @@ test.describe("Bank connection flow via mock", () => {
 
     // Connect bank
     await page.getByTestId("connect-button").click();
+    await page.getByTestId("bank-option-bunq").click();
     await page.waitForURL("**/mock-enable-banking/consent**");
     await page.getByTestId("simulate-success").click();
     await page.waitForURL("**/?connected=true");

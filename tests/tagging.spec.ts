@@ -21,6 +21,7 @@ test.use({
 async function connectAndRefresh(page: Page) {
   await page.goto("/");
   await page.getByTestId("connect-button").click();
+  await page.getByTestId("bank-option-bunq").click();
   await page.waitForURL("**/mock-enable-banking/consent**");
   await page.getByTestId("simulate-success").click();
   await page.waitForURL("**/?connected=true");

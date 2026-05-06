@@ -130,14 +130,14 @@ export function useBankConnection() {
     }
   }
 
-  async function handleConnect() {
+  async function handleConnect(aspsp: { name: string; country: string }) {
     setLoading("connect");
     setError("");
     try {
       const res = await fetch("/api/bank/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ aspsp: { name: "bunq", country: "NL" } }),
+        body: JSON.stringify({ aspsp }),
       });
       const data = (await res.json()) as { url?: string; error?: string };
       if (!res.ok || !data.url) {

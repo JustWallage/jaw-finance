@@ -121,6 +121,39 @@ export default function HomePage() {
   const chatInputRef = useRef<HTMLInputElement>(null);
   const [thinkingDots, setThinkingDots] = useState(1);
 
+  // Bank selection
+  const [bankDialogOpen, setBankDialogOpen] = useState(false);
+  const [bankList, setBankList] = useState<{ name: string; country: string; logo: string }[]>([]);
+  const [bankSearch, setBankSearch] = useState("");
+  const [bankLoading, setBankLoading] = useState(false);
+
+  async function openBankDialog() {
+    setBankDialogOpen(true);
+    setBankSearch("");
+    if (bankList.length > 0) return;
+    setBankLoading(true);
+    try {
+      const res = await fetch("/api/bank/aspsps", { headers: authHeaders() });
+      if (res.ok) {
+        const data = (await res.json()) as { aspsps: { name: string; country: string; logo: string }[] };
+        setBankList(data.aspsps.sort((a, b) => a.name.localeCompare(b.name)));
+      }
+    } finally {
+      setBankLoading(false);
+    }
+  }
+
+  function selectBank(aspsp: { name: string; country: string }) {
+    setBankDialogOpen(false);
+    handleConnect(aspsp);
+  }
+
+  const filteredBanks = bankList.filter(
+    (b) =>
+      b.name.toLowerCase().includes(bankSearch.toLowerCase()) ||
+      b.country.toLowerCase().includes(bankSearch.toLowerCase()),
+  );
+
   useEffect(() => {
     if (!chatLoading) return;
     setThinkingDots(1);
@@ -276,7 +309,7 @@ export default function HomePage() {
                 <div className="flex flex-col gap-2">
                   {!activeConnection ? (
                     <Button
-                      onClick={handleConnect}
+                      onClick={openBankDialog}
                       disabled={loading !== null}
                       data-testid="connect-button"
                     >
@@ -296,7 +329,7 @@ export default function HomePage() {
                     <>
                       <Button
                         variant="outline"
-                        onClick={handleConnect}
+                        onClick={openBankDialog}
                         disabled={loading !== null || importProgress !== null}
                         data-testid="reconnect-button"
                       >
@@ -458,7 +491,7 @@ export default function HomePage() {
         {!activeConnection && (
           <div className="flex justify-center">
             <Button
-              onClick={handleConnect}
+              onClick={openBankDialog}
               disabled={loading !== null}
               size="lg"
               data-testid="connect-button"
@@ -645,6 +678,56 @@ export default function HomePage() {
                 getTagCount={getTagCount}
                 onTagsChanged={handleTagsChanged}
               />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bank Selection Dialog */}
+      <Dialog open={bankDialogOpen} onOpenChange={setBankDialogOpen}>
+        <DialogContent className="max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Select your bank</DialogTitle>
+            <DialogDescription>
+              Search and select the bank you want to connect.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            placeholder="Search banks…"
+            value={bankSearch}
+            onChange={(e) => setBankSearch(e.target.value)}
+            autoFocus
+            data-testid="bank-search-input"
+          />
+          <div className="overflow-y-auto flex-1 min-h-0 max-h-[50vh]">
+            {bankLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin" />
+              </div>
+            ) : filteredBanks.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No banks found.
+              </p>
+            ) : (
+              <div className="space-y-1">
+                {filteredBanks.map((bank) => (
+                  <button
+                    key={`${bank.country}-${bank.name}`}
+                    className="w-full flex items-center gap-3 p-2 rounded hover:bg-accent text-left"
+                    onClick={() => selectBank({ name: bank.name, country: bank.country })}
+                    data-testid={`bank-option-${bank.name}`}
+                  >
+                    <img
+                      src={`${bank.logo}-/resize/32x/`}
+                      alt=""
+                      className="w-6 h-6 rounded"
+                      loading="lazy"
+                    />
+                    <span className="flex-1 text-sm font-medium">{bank.name}</span>
+                    <Badge variant="outline" className="text-xs">{bank.country}</Badge>
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         </DialogContent>
