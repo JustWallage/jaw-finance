@@ -26,6 +26,7 @@ test.describe("Bank connection flow via mock", () => {
     }, email);
     void page;
     await request.post("/mock-enable-banking/reset");
+    await request.post("/api/consent", { headers: { [userEmailHeader]: email } });
   });
 
   test("user connects bank successfully and sees transactions", async ({

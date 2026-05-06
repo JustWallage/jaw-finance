@@ -13,7 +13,7 @@ Task one: you must keep this document up to date, but only with the broad contex
 
 - **Project Name:** `jaw-finance`
 - **Monorepo:** React UI in `/src`, API in `/functions`, IaC in `/iac`, Tests in `/tests`, Database schemas/types in `/db`.
-- **Frontend:** React, Vite, Tailwind CSS, Shadcn UI (must download components, not create them manually). Client-side routing via `react-router-dom` (`/` Home, `/tags` Tags) wrapped in a shared `Layout` with a bottom navigation bar.
+- **Frontend:** React, Vite, Tailwind CSS, Shadcn UI (must download components, not create them manually). Client-side routing via `react-router-dom` (`/` Home, `/tags` Tags, `/terms` Terms, `/privacy` Privacy) wrapped in a shared `Layout` with a bottom navigation bar. A `ConsentGate` component enforces T&C/privacy consent before the app is usable.
 - **Backend:** Cloudflare Pages Functions.
 - **Database:** Cloudflare D1 (Two separate instances: Staging and Production), provisioned via Terraform.
   - Database bindings are dynamically templated into `wrangler.toml` during the CI pipeline using Terraform outputs (`wrangler.toml.template` → `wrangler.toml`).
@@ -49,6 +49,7 @@ Task one: you must keep this document up to date, but only with the broad contex
 ## Data Management
 
 - **Database Migrations:** Expand and Contract pattern. Migrations are in `/db/migrations` and run automatically before each environment's code deployment in the CI pipeline.
+- **User Consent:** `user_consents` table stores GDPR/PSD2 consent records keyed by `user_email`. A global middleware (`functions/api/_middleware.ts`) intercepts all `/api/*` requests (excluding `/api/consent` and `/api/health`) and returns 403 if the user has not consented.
 - **Transaction Storage:** Transactions fetched from Enable Banking are cached in D1. Idempotent upserts using a UNIQUE constraint on `(entry_reference, account_uid)`.
 - **Tagging System:** Hierarchical tags using a Materialized Path pattern.
   - `tags` table with `path` column (e.g., `food/groceries`). Many-to-many relationship via `transaction_tags` junction table.

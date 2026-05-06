@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS user_consents (
+  user_email TEXT PRIMARY KEY,
+  accepted_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);

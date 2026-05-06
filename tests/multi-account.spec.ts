@@ -26,6 +26,7 @@ test.describe("Multi-account support", () => {
     }, email);
     void page;
     await request.post("/mock-enable-banking/reset");
+    await request.post("/api/consent", { headers: { [userEmailHeader]: email } });
   });
 
   async function connectAndRefresh(page: Page) {
