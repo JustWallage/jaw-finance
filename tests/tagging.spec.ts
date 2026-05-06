@@ -42,6 +42,7 @@ test.describe("Transaction tagging", () => {
     }, email);
     void page;
     await request.post("/mock-enable-banking/reset");
+    await request.post("/api/consent", { headers: { [userEmailHeader]: email } });
   });
 
   test("create a nested tag inline and assign it to a transaction", async ({
