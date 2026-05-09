@@ -324,7 +324,7 @@ test.describe("AI auto-tagging", () => {
     expect(prompt).not.toMatch(/noise \(\d+%\)/);
   });
 
-  test("Batch evaluate: processes transactions, assigns tags, and sets ai_evaluated = TRUE", async ({
+  test("Batch evaluate: processes transactions, assigns tags, and sets ai_evaluated epoch timestamp", async ({
     page,
     request,
   }) => {
