@@ -105,13 +105,14 @@ test.describe("AI auto-tagging", () => {
     expect(parentTag?.status).toBe("unconfirmed");
     expect(parentTag?.reasoning).toBeNull();
 
-    // ai_evaluated should be set — a second batch call should report 0 pending for this tx.
+    // ai_evaluated should be set — pending count must have decreased by exactly 1.
+    const allTxRes = await request.get("/api/bank/transactions");
+    const allTxData = (await allTxRes.json()) as { transactions: unknown[] };
+    const totalTxCount = allTxData.transactions.length;
+
     const countRes = await request.get("/api/transactions/pending-count");
     const countData = (await countRes.json()) as { count: number };
-    // The evaluated transaction should no longer be counted as pending.
-    expect(countData.count).toBeLessThan(
-      (await request.get("/api/bank/transactions").then((r) => r.json()) as { transactions: unknown[] }).transactions.length,
-    );
+    expect(countData.count).toBe(totalTxCount - 1);
   });
 
   test("Tags page: unconfirmed appears at top, confirming moves it down", async ({

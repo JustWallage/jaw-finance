@@ -231,7 +231,10 @@ export default function HomePage() {
     try {
       await fetch("/api/transactions/evaluate-batch", {
         method: "POST",
-        headers: { ...authHeaders(), "X-Test-Mock-AI": import.meta.env.VITE_MOCK_AI === "1" ? "1" : "" },
+        headers: {
+          ...authHeaders(),
+          ...(import.meta.env.VITE_MOCK_AI === "1" ? { "X-Test-Mock-AI": "1" } : {}),
+        },
       });
       await fetchPendingCount();
       fetchTags();
