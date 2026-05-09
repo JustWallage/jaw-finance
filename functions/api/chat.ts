@@ -111,7 +111,7 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
         new Date().toISOString(),
       ).replace("{{TAGS}}", JSON.stringify(tagPaths));
 
-      const aiResp = await env.AI.run("@cf/meta/llama-3-8b-instruct", {
+      const aiResp = await env.AI.run("@cf/zai-org/glm-4.7-flash" as Parameters<typeof env.AI.run>[0], {
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: question },
@@ -145,7 +145,7 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
         result.totalExpense,
       );
     } else {
-      const summaryResp = await env.AI.run("@cf/meta/llama-3-8b-instruct", {
+      const summaryResp = await env.AI.run("@cf/zai-org/glm-4.7-flash" as Parameters<typeof env.AI.run>[0], {
         messages: [
           { role: "system", content: SUMMARY_SYSTEM_PROMPT },
           {

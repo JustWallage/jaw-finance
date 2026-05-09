@@ -252,7 +252,7 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userMessage },
       ];
-      const aiResp = await env.AI.run("@cf/meta/llama-3-8b-instruct", {
+      const aiResp = await env.AI.run("@cf/zai-org/glm-4.7-flash" as Parameters<typeof env.AI.run>[0], {
         messages,
         max_tokens: 300,
       });
@@ -328,6 +328,13 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
       );
       assignedPaths.push(path);
     }
+
+    // Mark the transaction as evaluated regardless of how many tags were assigned.
+    await env.DB.prepare(
+      "UPDATE transactions SET ai_evaluated = CAST(strftime('%s', 'now') AS INTEGER) WHERE id = ? AND user_email = ?",
+    )
+      .bind(txId, userEmail)
+      .run();
 
     return Response.json({
       assigned: assignedPaths,

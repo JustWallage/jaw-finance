@@ -53,14 +53,19 @@ async function connectAndRefresh(page: Page) {
 }
 
 test.describe("AI auto-tagging", () => {
-  test("AI Evaluate button assigns mocked tags and marks new ones unconfirmed", async ({
+  test("AI Evaluate button assigns mocked tags, marks new ones unconfirmed, and sets ai_evaluated", async ({
     page,
     request,
   }) => {
     const table = await connectAndRefresh(page);
 
-    // Open first transaction modal
-    await table.locator("tbody tr").first().click();
+    // Open first transaction modal; capture its id.
+    const firstRow = table.locator("tbody tr").first();
+    const testId = await firstRow.getAttribute("data-testid");
+    const txId = Number(testId?.replace("tx-row-", ""));
+    expect(txId).toBeGreaterThan(0);
+
+    await firstRow.click();
     const dialog = page.getByTestId("transaction-dialog");
     await expect(dialog).toBeVisible();
 
@@ -99,6 +104,15 @@ test.describe("AI auto-tagging", () => {
     expect(parentTag?.source).toBe("llm");
     expect(parentTag?.status).toBe("unconfirmed");
     expect(parentTag?.reasoning).toBeNull();
+
+    // ai_evaluated should be set — pending count must have decreased by exactly 1.
+    const allTxRes = await request.get("/api/bank/transactions");
+    const allTxData = (await allTxRes.json()) as { transactions: unknown[] };
+    const totalTxCount = allTxData.transactions.length;
+
+    const countRes = await request.get("/api/transactions/pending-count");
+    const countData = (await countRes.json()) as { count: number };
+    expect(countData.count).toBe(totalTxCount - 1);
   });
 
   test("Tags page: unconfirmed appears at top, confirming moves it down", async ({
@@ -308,6 +322,41 @@ test.describe("AI auto-tagging", () => {
     );
     // noise appears in exactly 10% → NOT strictly > 10%, must be absent from historical sections
     expect(prompt).not.toMatch(/noise \(\d+%\)/);
+  });
+
+  test("Batch evaluate: processes transactions, assigns tags, and sets ai_evaluated epoch timestamp", async ({
+    page,
+    request,
+  }) => {
+    // Connect and refresh to populate transactions.
+    await connectAndRefresh(page);
+
+    // Confirm all transactions start as pending.
+    const beforeCount = (await request.get("/api/transactions/pending-count").then((r) => r.json()) as { count: number }).count;
+    expect(beforeCount).toBeGreaterThan(0);
+
+    // Click the batch evaluate button.
+    const batchBtn = page.getByTestId("batch-evaluate-button");
+    await expect(batchBtn).toBeVisible();
+    await batchBtn.click();
+
+    // Wait for batch processing to finish (button re-enables).
+    await expect(batchBtn).not.toBeDisabled({ timeout: 15_000 });
+
+    // All transactions should now be evaluated → pending count = 0.
+    const afterCount = (await request.get("/api/transactions/pending-count").then((r) => r.json()) as { count: number }).count;
+    expect(afterCount).toBe(0);
+
+    // The mock tags should have been assigned to at least the first transaction.
+    const tagsRes = await request.get("/api/tags?status=unconfirmed");
+    const tagsData = (await tagsRes.json()) as { tags: Array<{ path: string }> };
+    expect(tagsData.tags.some((t) => t.path === "ai-mock/new-parent/new-leaf")).toBe(true);
+
+    // Clicking batch evaluate again should be a no-op (0 processed).
+    await batchBtn.click();
+    await expect(batchBtn).not.toBeDisabled({ timeout: 10_000 });
+    const finalCount = (await request.get("/api/transactions/pending-count").then((r) => r.json()) as { count: number }).count;
+    expect(finalCount).toBe(0);
   });
 
 });
