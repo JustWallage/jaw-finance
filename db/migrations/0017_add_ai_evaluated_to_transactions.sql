@@ -1,0 +1,1 @@
+ALTER TABLE transactions ADD COLUMN ai_evaluated INTEGER NOT NULL DEFAULT 0;

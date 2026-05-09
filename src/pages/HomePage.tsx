@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { Loader2, RefreshCw, Link as LinkIcon, AlertTriangle, History, User, TrendingUp, TrendingDown, Eye, EyeOff, Sparkles, MessageCircle, ChevronDown, ChevronUp, Send } from "lucide-react";
+import { Loader2, RefreshCw, Link as LinkIcon, AlertTriangle, History, User, TrendingUp, TrendingDown, Eye, EyeOff, Sparkles, MessageCircle, ChevronDown, ChevronUp, Send, BotMessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -108,6 +108,8 @@ export default function HomePage() {
   const displayedTransactions = transactions;
 
   const [evaluating, setEvaluating] = useState(false);
+  const [batchEvaluating, setBatchEvaluating] = useState(false);
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
 
   const [chatQuestion, setChatQuestion] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
@@ -211,6 +213,37 @@ export default function HomePage() {
       setEvaluating(false);
     }
   }
+
+  async function fetchPendingCount() {
+    try {
+      const res = await fetch("/api/transactions/pending-count", { headers: authHeaders() });
+      if (res.ok) {
+        const data = (await res.json()) as { count: number };
+        setPendingCount(data.count);
+      }
+    } catch {
+      /* non-critical */
+    }
+  }
+
+  async function handleBatchEvaluate() {
+    setBatchEvaluating(true);
+    try {
+      await fetch("/api/transactions/evaluate-batch", {
+        method: "POST",
+        headers: { ...authHeaders(), "X-Test-Mock-AI": import.meta.env.VITE_MOCK_AI === "1" ? "1" : "" },
+      });
+      await fetchPendingCount();
+      fetchTags();
+    } finally {
+      setBatchEvaluating(false);
+    }
+  }
+
+  // Fetch pending count when transactions load.
+  useEffect(() => {
+    if (transactions.length > 0) fetchPendingCount();
+  }, [transactions.length]);
 
   return (
     <>
@@ -585,8 +618,22 @@ export default function HomePage() {
 
         {displayedTransactions.length > 0 && (
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
               <CardTitle>Transactions</CardTitle>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleBatchEvaluate}
+                disabled={batchEvaluating}
+                data-testid="batch-evaluate-button"
+              >
+                {batchEvaluating ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <BotMessageSquare className="h-3 w-3" />
+                )}
+                Auto-Tag Pending{pendingCount !== null ? ` (${pendingCount})` : " (Max 50)"}
+              </Button>
             </CardHeader>
             <CardContent>
               <Table data-testid="transactions-table">

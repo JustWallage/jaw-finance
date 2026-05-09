@@ -30,6 +30,8 @@ export interface DBTransaction {
   remittance_info: string | null;
   user_email: string | null;
   created_at: string;
+  /** 0 = not yet AI-evaluated, 1 = evaluated (even if no tags were assigned). */
+  ai_evaluated: number;
 }
 
 /** Enable Banking API transaction shape. */
