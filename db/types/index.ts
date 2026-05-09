@@ -30,7 +30,7 @@ export interface DBTransaction {
   remittance_info: string | null;
   user_email: string | null;
   created_at: string;
-  /** 0 = not yet AI-evaluated, 1 = evaluated (even if no tags were assigned). */
+  /** 0 = not yet AI-evaluated, otherwise Unix epoch seconds when evaluated. */
   ai_evaluated: number;
 }
 

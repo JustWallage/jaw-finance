@@ -334,7 +334,7 @@ Respond with a JSON array only.`;
     // Mark ALL batch transactions as evaluated regardless of tag outcome.
     const placeholders = txIds.map(() => "?").join(", ");
     await env.DB.prepare(
-      `UPDATE transactions SET ai_evaluated = 1 WHERE id IN (${placeholders}) AND user_email = ?`,
+      `UPDATE transactions SET ai_evaluated = CAST(strftime('%s', 'now') AS INTEGER) WHERE id IN (${placeholders}) AND user_email = ?`,
     )
       .bind(...txIds, userEmail)
       .run();

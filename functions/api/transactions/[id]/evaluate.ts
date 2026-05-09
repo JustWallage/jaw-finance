@@ -331,7 +331,7 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
 
     // Mark the transaction as evaluated regardless of how many tags were assigned.
     await env.DB.prepare(
-      "UPDATE transactions SET ai_evaluated = 1 WHERE id = ? AND user_email = ?",
+      "UPDATE transactions SET ai_evaluated = CAST(strftime('%s', 'now') AS INTEGER) WHERE id = ? AND user_email = ?",
     )
       .bind(txId, userEmail)
       .run();
