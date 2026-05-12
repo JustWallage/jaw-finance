@@ -12,8 +12,6 @@ WHERE tag_id IN (
       OR path LIKE 'year-____'
       OR path LIKE 'year-____/month-__'
       OR path LIKE 'year-____/month-__/day-__'
-      OR path LIKE 'month-____-__'
-      OR path LIKE 'day-____-__-__'
     )
 );
 
@@ -25,8 +23,6 @@ WHERE source = 'system'
     OR path LIKE 'year-____'
     OR path LIKE 'year-____/month-__'
     OR path LIKE 'year-____/month-__/day-__'
-    OR path LIKE 'month-____-__'
-    OR path LIKE 'day-____-__-__'
   )
   AND NOT EXISTS (
     SELECT 1
