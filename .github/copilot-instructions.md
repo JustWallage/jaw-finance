@@ -84,6 +84,7 @@ Task one: you must keep this document up to date, but only with the broad contex
 The Copilot Coding Agent environment is set up automatically via `.github/copilot-setup-steps.yml` before work starts (installs pnpm, npm deps, Terraform, Playwright browsers, generates dummy secrets, builds the project, and applies local DB migrations).
 
 After setup, all checks and local E2E tests are available:
+
 - **Static checks:** `pnpm check` (TypeScript + Terraform fmt/validate)
 - **Build:** `pnpm build`
 - **E2E tests locally:** start both dev servers in the background, then run tests:
@@ -98,9 +99,17 @@ After setup, all checks and local E2E tests are available:
 ## Validation Rules
 
 After making any code changes, **always** run these checks before considering the task complete:
+
 1. `pnpm check` — must pass (TypeScript + Terraform)
 2. `pnpm build` — must succeed
 3. Run the full E2E test suite locally (start dev servers → `CI= pnpm test:e2e`) — all tests must pass. If a test fails, investigate and fix before finishing.
+
+## Cloud Agent (Copilot Coding Agent)
+
+When you are the Copilot Coding Agent working on a feature branch, your final commit that completes the task MUST include `run-pipeline` in the commit message title to trigger the branch validation pipeline (check, build, deploy, E2E tests).
+Then, after pushing, you MUST monitor the GitHub Actions pipeline for that commit. If any step fails (check/build/tests), you MUST investigate the failure, fix it in a new commit, and push again to re-trigger the pipeline until it fully passes.
+
+## Final Notes
 
 Personality: Don't flatter me. Be helpful but very honest. Don't agree with mistakes. Call out potential misses using ❗️.
 
