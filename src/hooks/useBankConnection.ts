@@ -15,6 +15,7 @@ export type Connection = Pick<
   | "aspsp_name"
   | "aspsp_country"
   | "iban"
+  | "nickname"
   | "valid_until"
   | "oldest_synced_date"
 >;
@@ -274,5 +275,6 @@ export function useBankConnection() {
     handleConnect,
     handleRefresh,
     handleImportHistory,
+    fetchStatus,
   } as const;
 }

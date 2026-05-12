@@ -8,6 +8,7 @@ export interface DBBankConnection {
   aspsp_name: string;
   aspsp_country: string;
   iban: string | null;
+  nickname: string | null;
   valid_until: string;
   oldest_synced_date: string | null;
   user_email: string | null;
