@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { Loader2, RefreshCw, Link as LinkIcon, AlertTriangle, History, User, TrendingUp, TrendingDown, Eye, EyeOff, Sparkles, MessageCircle, ChevronDown, ChevronUp, Send, BotMessageSquare } from "lucide-react";
+import { Loader2, RefreshCw, Link as LinkIcon, AlertTriangle, History, User, TrendingUp, TrendingDown, Eye, EyeOff, Sparkles, MessageCircle, ChevronDown, ChevronUp, Send, BotMessageSquare, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -28,6 +28,7 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -62,12 +63,13 @@ export default function HomePage() {
     handleConnect,
     handleRefresh,
     handleImportHistory,
+    fetchStatus,
   } = useBankConnection();
 
   const accountLabel = (uid: string) => {
     if (uid === "all") return "All Accounts";
     const c = connections.find((conn) => conn.account_uid === uid);
-    return c?.iban ?? uid;
+    return c?.nickname ?? c?.iban ?? uid;
   };
 
   const selectedConnection = connections.find(
@@ -128,6 +130,36 @@ export default function HomePage() {
   const [bankList, setBankList] = useState<{ name: string; country: string; logo: string }[]>([]);
   const [bankSearch, setBankSearch] = useState("");
   const [bankLoading, setBankLoading] = useState(false);
+
+  // Nickname editing
+  const [nicknameDialogOpen, setNicknameDialogOpen] = useState(false);
+  const [nicknameDraft, setNicknameDraft] = useState<Record<string, string>>({});
+  const [nicknameSaving, setNicknameSaving] = useState(false);
+
+  function openNicknameDialog() {
+    const draft: Record<string, string> = {};
+    for (const c of connections) draft[c.account_uid] = c.nickname ?? "";
+    setNicknameDraft(draft);
+    setNicknameDialogOpen(true);
+  }
+
+  async function saveNicknames() {
+    setNicknameSaving(true);
+    try {
+      await fetch("/api/bank/nickname", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ nicknames: nicknameDraft }),
+      });
+      await fetchStatus();
+    } catch {
+      /* ignore */
+    } finally {
+      setNicknameSaving(false);
+      setNicknameDialogOpen(false);
+    }
+  }
+
 
   async function openBankDialog() {
     setBankDialogOpen(true);
@@ -284,7 +316,11 @@ export default function HomePage() {
               <Select
                 value={selectedAccountUid}
                 onValueChange={(value) => {
-                  if (value) setSelectedAccountUid(value);
+                  if (value === "edit-names") {
+                    openNicknameDialog();
+                  } else if (value) {
+                    setSelectedAccountUid(value);
+                  }
                 }}
               >
                 <SelectTrigger data-testid="account-switcher">
@@ -302,9 +338,14 @@ export default function HomePage() {
                       value={c.account_uid}
                       data-testid={`account-option-${c.account_uid}`}
                     >
-                      {c.iban ?? c.account_uid}
+                      {c.nickname ?? c.iban ?? c.account_uid}
                     </SelectItem>
                   ))}
+                  <SelectSeparator />
+                  <SelectItem value="edit-names" data-testid="account-edit-names" className="text-muted-foreground">
+                    <Pencil className="h-3.5 w-3.5" />
+                    Edit account names
+                  </SelectItem>
                 </SelectContent>
               </Select>
             )}
@@ -779,6 +820,42 @@ export default function HomePage() {
                 ))}
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Account Nickname Dialog */}
+      <Dialog open={nicknameDialogOpen} onOpenChange={setNicknameDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit account names</DialogTitle>
+            <DialogDescription>
+              Set a nickname for each account. Leave blank to use the IBAN or account ID.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {connections.map((c) => (
+              <div key={c.account_uid} className="space-y-1">
+                <p className="text-xs text-muted-foreground">{c.iban ?? c.account_uid}</p>
+                <Input
+                  placeholder={c.iban ?? c.account_uid}
+                  value={nicknameDraft[c.account_uid] ?? ""}
+                  onChange={(e) =>
+                    setNicknameDraft((prev) => ({ ...prev, [c.account_uid]: e.target.value }))
+                  }
+                  data-testid={`nickname-input-${c.account_uid}`}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setNicknameDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={saveNicknames} disabled={nicknameSaving} data-testid="save-nicknames-button">
+              {nicknameSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Save
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

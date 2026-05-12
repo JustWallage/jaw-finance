@@ -89,8 +89,8 @@ test.describe("Multi-account support", () => {
 
     // First account should show IBAN
     const options = page.locator("[data-slot='select-item']");
-    // "All Accounts" + 2 accounts = 3 items
-    await expect(options).toHaveCount(3);
+    // "All Accounts" + 2 accounts + "Edit account names" = 4 items
+    await expect(options).toHaveCount(4);
 
     // The IBAN account should display the IBAN
     await expect(options.nth(1)).toContainText("NL00MOCK0123456789");
