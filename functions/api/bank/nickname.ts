@@ -9,7 +9,10 @@ export const onRequestPatch: PagesFunction<EBEnv> = async (context) => {
     };
 
     if (!body.nicknames || typeof body.nicknames !== "object" || Array.isArray(body.nicknames)) {
-      return Response.json({ error: "Invalid body" }, { status: 400 });
+      return Response.json(
+        { error: "Expected nicknames to be a non-null object mapping account UIDs to nickname strings" },
+        { status: 400 },
+      );
     }
 
     const stmts = Object.entries(body.nicknames).map(([account_uid, nickname]) =>

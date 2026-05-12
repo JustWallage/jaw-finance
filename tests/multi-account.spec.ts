@@ -153,6 +153,58 @@ test.describe("Multi-account support", () => {
     expect(allRows).toBe(8);
   });
 
+  test("can set a nickname and switcher shows it instead of IBAN", async ({
+    page,
+  }) => {
+    await connectAndRefresh(page);
+
+    // Open "Edit account names" from the dropdown
+    const switcher = page.getByTestId("account-switcher");
+    await switcher.click();
+    await page.getByTestId("account-edit-names").click();
+
+    // Dialog should show an input for the IBAN account (placeholder = IBAN)
+    const ibanInput = page.locator('[placeholder="NL00MOCK0123456789"]');
+    await expect(ibanInput).toBeVisible();
+
+    // Type a nickname for the IBAN account
+    await ibanInput.fill("My Checking");
+    await page.getByTestId("save-nicknames-button").click();
+
+    // After save, switcher should show the nickname instead of the IBAN
+    await expect(switcher).toContainText("My Checking", { timeout: 5_000 });
+    await expect(switcher).not.toContainText("NL00MOCK0123456789");
+
+    // The dropdown option should also reflect the nickname
+    await switcher.click();
+    const options = page.locator("[data-slot='select-item']");
+    await expect(options.nth(1)).toContainText("My Checking");
+    await expect(options.nth(1)).not.toContainText("NL00MOCK0123456789");
+  });
+
+  test("clearing a nickname reverts switcher to IBAN", async ({ page }) => {
+    await connectAndRefresh(page);
+
+    const switcher = page.getByTestId("account-switcher");
+
+    // Set a nickname first
+    await switcher.click();
+    await page.getByTestId("account-edit-names").click();
+    await page.locator('[placeholder="NL00MOCK0123456789"]').fill("Temp Name");
+    await page.getByTestId("save-nicknames-button").click();
+    await expect(switcher).toContainText("Temp Name", { timeout: 5_000 });
+
+    // Now clear it
+    await switcher.click();
+    await page.getByTestId("account-edit-names").click();
+    await page.locator('[placeholder="NL00MOCK0123456789"]').fill("");
+    await page.getByTestId("save-nicknames-button").click();
+
+    // Should revert to IBAN
+    await expect(switcher).toContainText("NL00MOCK0123456789", { timeout: 5_000 });
+    await expect(switcher).not.toContainText("Temp Name");
+  });
+
   test("refreshing page preserves selected account via local storage", async ({
     page,
   }) => {

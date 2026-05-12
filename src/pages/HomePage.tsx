@@ -159,7 +159,7 @@ export default function HomePage() {
         setNicknameSaveError(data.error ?? "Failed to save");
         return;
       }
-      try { await fetchStatus(); } catch { /* non-critical */ }
+      try { await fetchStatus(); } catch (e) { console.warn("fetchStatus failed:", e); }
       setNicknameDialogOpen(false);
     } catch {
       setNicknameSaveError("Network error. Please try again.");
