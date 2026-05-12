@@ -25,7 +25,7 @@ test.beforeEach(async ({ page, context, request }, testInfo) => {
   }, email);
   void page;
   await request.post("/mock-enable-banking/reset");
-    await request.post("/api/consent", { headers: { [userEmailHeader]: email } });
+  await request.post("/api/consent", { headers: { [userEmailHeader]: email } });
 });
 
 async function connectAndRefresh(page: Page) {
@@ -134,8 +134,14 @@ test.describe("Tag query - backend", () => {
     const txData = (await txRes.json()) as {
       transactions: Array<{ id: number; booking_date: string | null }>;
     };
-    // Mock transactions have dates relative to today (daysAgo(1) through daysAgo(5))
-    // All are tagged with income/expense system tags
+    const dateFilterTagRes = await request.post("/api/tags", {
+      data: { name: "date-filter", path: "tests/date-filter" },
+    });
+    const dateFilterTag = ((await dateFilterTagRes.json()) as { tag: { id: number } }).tag;
+    for (const tx of txData.transactions) {
+      await request.put(`/api/transactions/${tx.id}/tags`, { data: { tag_id: dateFilterTag.id } });
+    }
+
     const sortedByDate = [...txData.transactions]
       .filter((t) => t.booking_date)
       .sort((a, b) => a.booking_date!.localeCompare(b.booking_date!));
@@ -143,11 +149,11 @@ test.describe("Tag query - backend", () => {
     const oldest = sortedByDate[0];
     const newest = sortedByDate[sortedByDate.length - 1];
 
-    // Query all income OR expense with date range narrowed to only the newest date
+    // Query one assigned tag with date range narrowed to only the newest date
     const res = await request.post("/api/transactions/by-tags", {
       data: {
         queries: [{
-          tagGlobs: ["income", "expense"],
+          tagGlobs: ["tests/date-filter"],
           startDate: newest.booking_date!,
           endDate: newest.booking_date!,
         }],
@@ -170,9 +176,21 @@ test.describe("Tag query - backend", () => {
   test("aggregation totals are correct", async ({ page, request }) => {
     await connectAndRefresh(page);
 
-    // income/expense tags are auto-assigned; query for "income" to get credit transactions
+    const txRes = await request.get("/api/bank/transactions");
+    const txData = (await txRes.json()) as {
+      transactions: Array<{ id: number; credit_debit: string }>;
+    };
+    const incomeOnlyRes = await request.post("/api/tags", {
+      data: { name: "income-only", path: "tests/income-only" },
+    });
+    const incomeOnlyTag = ((await incomeOnlyRes.json()) as { tag: { id: number } }).tag;
+    const creditTransactions = txData.transactions.filter((tx) => tx.credit_debit === "CRDT");
+    for (const tx of creditTransactions) {
+      await request.put(`/api/transactions/${tx.id}/tags`, { data: { tag_id: incomeOnlyTag.id } });
+    }
+
     const res = await request.post("/api/transactions/by-tags", {
-      data: { queries: [{ tagGlobs: ["income"] }] },
+      data: { queries: [{ tagGlobs: ["tests/income-only"] }] },
     });
     const data = (await res.json()) as {
       transactions: Array<{ amount: string; credit_debit: string }>;
@@ -221,8 +239,17 @@ test.describe("Tag query - frontend", () => {
     const section = page.getByTestId("query-search-section");
     await expect(section).toBeVisible();
 
-    // Search for all income transactions using GLOB
-    await section.getByTestId("query-glob-input").fill("income");
+    const txRes = await page.request.get("/api/bank/transactions");
+    const txData = (await txRes.json()) as { transactions: Array<{ id: number }> };
+    const tagRes = await page.request.post("/api/tags", {
+      data: { name: "frontend-query", path: "tests/frontend-query" },
+    });
+    const tag = ((await tagRes.json()) as { tag: { id: number } }).tag;
+    await page.request.put(`/api/transactions/${txData.transactions[0].id}/tags`, {
+      data: { tag_id: tag.id },
+    });
+
+    await section.getByTestId("query-glob-input").fill("tests/frontend-*");
     await section.getByTestId("query-search-button").click();
 
     // Results modal should open
@@ -244,8 +271,15 @@ test.describe("Tag query - frontend", () => {
     // Get a known transaction date to use as filter
     const txRes = await request.get("/api/bank/transactions");
     const txData = (await txRes.json()) as {
-      transactions: Array<{ booking_date: string | null }>;
+      transactions: Array<{ id: number; booking_date: string | null }>;
     };
+    const queryTagRes = await request.post("/api/tags", {
+      data: { name: "frontend-date", path: "tests/frontend-date" },
+    });
+    const queryTag = ((await queryTagRes.json()) as { tag: { id: number } }).tag;
+    for (const tx of txData.transactions) {
+      await request.put(`/api/transactions/${tx.id}/tags`, { data: { tag_id: queryTag.id } });
+    }
     const dates = txData.transactions
       .map((t) => t.booking_date)
       .filter(Boolean) as string[];
@@ -256,7 +290,7 @@ test.describe("Tag query - frontend", () => {
     await expect(page).toHaveURL(/\/tags$/);
 
     const section = page.getByTestId("query-search-section");
-    await section.getByTestId("query-glob-input").fill("income");
+    await section.getByTestId("query-glob-input").fill("tests/frontend-date");
     await section.getByTestId("query-start-date").fill(latestDate);
     await section.getByTestId("query-end-date").fill(latestDate);
     await section.getByTestId("query-search-button").click();
@@ -267,8 +301,7 @@ test.describe("Tag query - frontend", () => {
     // Modal should be visible (even with 0 results, modal still shows)
     const txItems = dialog.locator("[data-testid^='query-tx-']");
     const count = await txItems.count();
-    // Income transactions have dates from daysAgo(1) and daysAgo(4), so filtering
-    // to the latest date should return a subset (or zero if no income that day)
+    // Date filtering should return a subset (or zero if no transaction on that date)
     expect(count).toBeLessThanOrEqual(dates.length);
   });
 });
