@@ -8,7 +8,7 @@ export const onRequestPatch: PagesFunction<EBEnv> = async (context) => {
       nicknames: Record<string, string>;
     };
 
-    if (!body.nicknames || typeof body.nicknames !== "object") {
+    if (!body.nicknames || typeof body.nicknames !== "object" || Array.isArray(body.nicknames)) {
       return Response.json({ error: "Invalid body" }, { status: 400 });
     }
 

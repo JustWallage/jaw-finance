@@ -135,28 +135,36 @@ export default function HomePage() {
   const [nicknameDialogOpen, setNicknameDialogOpen] = useState(false);
   const [nicknameDraft, setNicknameDraft] = useState<Record<string, string>>({});
   const [nicknameSaving, setNicknameSaving] = useState(false);
+  const [nicknameSaveError, setNicknameSaveError] = useState<string | null>(null);
 
   function openNicknameDialog() {
     const draft: Record<string, string> = {};
     for (const c of connections) draft[c.account_uid] = c.nickname ?? "";
     setNicknameDraft(draft);
+    setNicknameSaveError(null);
     setNicknameDialogOpen(true);
   }
 
   async function saveNicknames() {
     setNicknameSaving(true);
+    setNicknameSaveError(null);
     try {
-      await fetch("/api/bank/nickname", {
+      const res = await fetch("/api/bank/nickname", {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ nicknames: nicknameDraft }),
       });
-      await fetchStatus();
+      if (!res.ok) {
+        const data = (await res.json()) as { error?: string };
+        setNicknameSaveError(data.error ?? "Failed to save");
+        return;
+      }
+      try { await fetchStatus(); } catch { /* non-critical */ }
+      setNicknameDialogOpen(false);
     } catch {
-      /* ignore */
+      setNicknameSaveError("Network error. Please try again.");
     } finally {
       setNicknameSaving(false);
-      setNicknameDialogOpen(false);
     }
   }
 
@@ -343,7 +351,7 @@ export default function HomePage() {
                   ))}
                   <SelectSeparator />
                   <SelectItem value="edit-names" data-testid="account-edit-names" className="text-muted-foreground">
-                    <Pencil className="h-3.5 w-3.5" />
+                    <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
                     Edit account names
                   </SelectItem>
                 </SelectContent>
@@ -849,6 +857,9 @@ export default function HomePage() {
             ))}
           </div>
           <div className="flex justify-end gap-2">
+            {nicknameSaveError && (
+              <p className="flex-1 text-sm text-destructive">{nicknameSaveError}</p>
+            )}
             <Button variant="outline" onClick={() => setNicknameDialogOpen(false)}>
               Cancel
             </Button>
