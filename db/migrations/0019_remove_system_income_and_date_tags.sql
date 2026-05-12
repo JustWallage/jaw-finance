@@ -9,9 +9,9 @@ WHERE tag_id IN (
     AND (
       path = 'income'
       OR path = 'expense'
-      OR path LIKE 'year-____'
-      OR path LIKE 'year-____/month-__'
-      OR path LIKE 'year-____/month-__/day-__'
+      OR path GLOB 'year-[0-9][0-9][0-9][0-9]'
+      OR path GLOB 'year-[0-9][0-9][0-9][0-9]/month-[0-9][0-9]'
+      OR path GLOB 'year-[0-9][0-9][0-9][0-9]/month-[0-9][0-9]/day-[0-9][0-9]'
     )
 );
 
@@ -20,9 +20,9 @@ WHERE source = 'system'
   AND (
     path = 'income'
     OR path = 'expense'
-    OR path LIKE 'year-____'
-    OR path LIKE 'year-____/month-__'
-    OR path LIKE 'year-____/month-__/day-__'
+    OR path GLOB 'year-[0-9][0-9][0-9][0-9]'
+    OR path GLOB 'year-[0-9][0-9][0-9][0-9]/month-[0-9][0-9]'
+    OR path GLOB 'year-[0-9][0-9][0-9][0-9]/month-[0-9][0-9]/day-[0-9][0-9]'
   )
   AND NOT EXISTS (
     SELECT 1
