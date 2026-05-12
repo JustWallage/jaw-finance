@@ -71,7 +71,10 @@ async function fetchHistoricalTagFrequencies(
     .all<{ path: string; cnt: number }>();
 
   return tagRows.results
-    .map((r) => ({ path: r.path, percentage: Math.round((r.cnt / total) * 100) }))
+    .map((r) => ({
+      path: r.path,
+      percentage: Math.round((r.cnt / total) * 100),
+    }))
     .filter((r) => r.percentage > 10)
     .sort((a, b) => b.percentage - a.percentage);
 }
@@ -91,14 +94,18 @@ function buildPrompt(
 
   const descriptionBlock =
     descriptionFrequencies.length > 0
-      ? descriptionFrequencies.map((f) => `${f.path} (${f.percentage}%)`).join("\n")
+      ? descriptionFrequencies
+          .map((f) => `${f.path} (${f.percentage}%)`)
+          .join("\n")
       : "None";
 
   let historicalSection = `Tags of previous transactions with the exact same description:\n${descriptionBlock}`;
   if (counterpartyFrequencies !== null) {
     const counterpartyBlock =
       counterpartyFrequencies.length > 0
-        ? counterpartyFrequencies.map((f) => `${f.path} (${f.percentage}%)`).join("\n")
+        ? counterpartyFrequencies
+            .map((f) => `${f.path} (${f.percentage}%)`)
+            .join("\n")
         : "None";
     historicalSection += `\n\nTags of previous transactions with the exact same counterparty name:\n${counterpartyBlock}`;
   }
@@ -219,16 +226,15 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
           userEmail,
         )
       : [];
-    const counterpartyFrequencies =
-      tx.counterparty_name?.trim()
-        ? await fetchHistoricalTagFrequencies(
-            env.DB,
-            "counterparty_name",
-            tx.counterparty_name,
-            txId,
-            userEmail,
-          )
-        : null;
+    const counterpartyFrequencies = tx.counterparty_name?.trim()
+      ? await fetchHistoricalTagFrequencies(
+          env.DB,
+          "counterparty_name",
+          tx.counterparty_name,
+          txId,
+          userEmail,
+        )
+      : null;
 
     const userMessage = buildPrompt(
       tx,
@@ -252,18 +258,34 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userMessage },
       ];
-      const aiResp = await env.AI.run("@cf/zai-org/glm-4.7-flash" as Parameters<typeof env.AI.run>[0], {
-        messages,
-        max_tokens: 300,
-      });
+      // const aiResp = await env.AI.run("@cf/zai-org/glm-4.7-flash" as Parameters<typeof env.AI.run>[0], {
+      const aiResp = await env.AI.run(
+        "@cf/meta/llama-3.3-70b-instruct-fp8-fast" satisfies Parameters<
+          typeof env.AI.run
+        >[0],
+        {
+          messages,
+          max_tokens: 300,
+        },
+      );
+      const resp = (aiResp as { response?: unknown }).response;
       const text =
-        typeof (aiResp as { response?: string }).response === "string"
-          ? (aiResp as { response: string }).response
-          : JSON.stringify(aiResp);
+        typeof resp === "string"
+          ? resp
+          : typeof resp === "object" && resp !== null
+            ? JSON.stringify(resp)
+            : JSON.stringify(aiResp);
       console.log(
-        `Input:\n${messages.map((m) => `${m.role}: ${m.content}`).join("\n\n")}\nAI output:\n${text}`,
+        `[evaluate] Input:\n${messages.map((m) => `${m.role}: ${m.content}`).join("\n\n")}\nAI raw:\n${JSON.stringify(aiResp)}`,
       );
       parsed = parseAIResponse(text);
+      if (parsed.tags.length === 0 && !parsed.reasoning) {
+        console.error(`[evaluate] Failed to parse AI response. Raw:\n${JSON.stringify(aiResp)}`);
+        return Response.json(
+          { error: "AI returned invalid output", raw: text },
+          { status: 502 },
+        );
+      }
     }
 
     const rejectedSet = new Set(rejected);

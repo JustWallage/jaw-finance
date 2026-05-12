@@ -25,7 +25,7 @@ Examples:
 
 Output ONLY the JSON array.`;
 
-const SUMMARY_SYSTEM_PROMPT = `You are a friendly financial assistant. Given the user's original question and query results, write a single short sentence summarizing the answer. Use the exact numbers provided. Do not output JSON. Only plain text.`;
+const SUMMARY_SYSTEM_PROMPT = `You are a friendly financial assistant. Given the user's original question and query results, write a short friendly message that answers their question. Use the exact numbers provided. Do not output JSON. Only plain text.`;
 
 function stripMarkdownCodeBlocks(text: string): string {
   return text
@@ -53,10 +53,21 @@ function parseQueryArray(raw: string): QueryObject[] | null {
 }
 
 function extractAIText(aiResp: unknown): string {
-  const resp = aiResp as { response?: string };
-  return typeof resp.response === "string"
-    ? resp.response
-    : JSON.stringify(aiResp);
+  const resp = (aiResp as { response?: unknown }).response;
+  if (typeof resp === "string") return resp;
+  if (typeof resp === "object" && resp !== null) return JSON.stringify(resp);
+  const choices = (
+    aiResp as {
+      choices?: {
+        message?: { content?: string | null; reasoning_content?: string };
+      }[];
+    }
+  ).choices;
+  if (typeof choices?.[0]?.message?.content === "string")
+    return choices[0].message.content;
+  if (typeof choices?.[0]?.message?.reasoning_content === "string")
+    return choices[0].message.reasoning_content;
+  return JSON.stringify(aiResp);
 }
 
 function mockQueryResponse(): QueryObject[] {
@@ -111,14 +122,22 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
         new Date().toISOString(),
       ).replace("{{TAGS}}", JSON.stringify(tagPaths));
 
-      const aiResp = await env.AI.run("@cf/zai-org/glm-4.7-flash" as Parameters<typeof env.AI.run>[0], {
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: question },
-        ],
-        max_tokens: 500,
-      });
+      const aiResp = await env.AI.run(
+        "@cf/meta/llama-3.3-70b-instruct-fp8-fast" satisfies Parameters<
+          typeof env.AI.run
+        >[0],
+        {
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: question },
+          ],
+          max_tokens: 500,
+        },
+      );
       const text = extractAIText(aiResp);
+      console.log(
+        `[chat] Pass 1 input: system=${systemPrompt}\nuser=${question}\n[chat] Pass 1 output:\n${JSON.stringify(aiResp)}`,
+      );
 
       const parsed = parseQueryArray(text);
       if (!parsed || parsed.length === 0) {
@@ -145,16 +164,23 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
         result.totalExpense,
       );
     } else {
-      const summaryResp = await env.AI.run("@cf/zai-org/glm-4.7-flash" as Parameters<typeof env.AI.run>[0], {
-        messages: [
-          { role: "system", content: SUMMARY_SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: `Question: "${question}"\nResults: ${result.transactions.length} transactions, total income: ${result.totalIncome.toFixed(2)} EUR, total expenses: ${result.totalExpense.toFixed(2)} EUR.`,
-          },
-        ],
-        max_tokens: 150,
-      });
+      const summaryUserMsg = `Question: "${question}"\nResults: ${result.transactions.length} transactions, total income: ${result.totalIncome.toFixed(2)} EUR, total expenses: ${result.totalExpense.toFixed(2)} EUR.`;
+      console.log(
+        `[chat] Pass 2 input: system=${SUMMARY_SYSTEM_PROMPT}\nuser=${summaryUserMsg}`,
+      );
+      const summaryResp = await env.AI.run(
+        "@cf/meta/llama-3.3-70b-instruct-fp8-fast" satisfies Parameters<
+          typeof env.AI.run
+        >[0],
+        {
+          messages: [
+            { role: "system", content: SUMMARY_SYSTEM_PROMPT },
+            { role: "user", content: summaryUserMsg },
+          ],
+          max_tokens: 150,
+        },
+      );
+      console.log(`[chat] Pass 2 output:\n${JSON.stringify(summaryResp)}`);
       summary = extractAIText(summaryResp).trim() || "Here are your results.";
     }
 
