@@ -89,8 +89,7 @@ After setup, all checks and local E2E tests are available:
 - **Build:** `pnpm build`
 - **E2E tests locally:** start both dev servers in the background, then run tests:
   ```bash
-  bash scripts/dev-server.sh &
-  sleep 5
+  bash scripts/dev-server.sh > /tmp/dev-server.log 2>&1 & disown $!
   CI= pnpm test:e2e
   ```
   `CI=` must be unset so Playwright targets `localhost:8788` instead of the staging URL. `scripts/dev-server.sh` runs `pnpm dev` (Vite on :5173) and `pnpm dev:pages` (Wrangler on :8788) in parallel and exits with an error if either crashes.
