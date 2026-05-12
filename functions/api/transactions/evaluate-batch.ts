@@ -65,7 +65,10 @@ async function fetchHistoricalTagFrequencies(
     .all<{ path: string; cnt: number }>();
 
   return tagRows.results
-    .map((r) => ({ path: r.path, percentage: Math.round((r.cnt / total) * 100) }))
+    .map((r) => ({
+      path: r.path,
+      percentage: Math.round((r.cnt / total) * 100),
+    }))
     .filter((r) => r.percentage > 10)
     .sort((a, b) => b.percentage - a.percentage);
 }
@@ -168,17 +171,31 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
     const existingPlusExamples = [...existingFormatted, ...exampleFormatted];
 
     // Build per-transaction RAG context and already-assigned tags.
-    const ragContexts: { desc: HistoricalFrequency[]; counterparty: HistoricalFrequency[] | null }[] = [];
+    const ragContexts: {
+      desc: HistoricalFrequency[];
+      counterparty: HistoricalFrequency[] | null;
+    }[] = [];
     const alreadyPerTx: string[][] = [];
 
     for (const tx of txs) {
       const descFreqs = tx.remittance_info
-        ? await fetchHistoricalTagFrequencies(env.DB, "remittance_info", tx.remittance_info, txIds, userEmail)
+        ? await fetchHistoricalTagFrequencies(
+            env.DB,
+            "remittance_info",
+            tx.remittance_info,
+            txIds,
+            userEmail,
+          )
         : [];
-      const cpFreqs =
-        tx.counterparty_name?.trim()
-          ? await fetchHistoricalTagFrequencies(env.DB, "counterparty_name", tx.counterparty_name, txIds, userEmail)
-          : null;
+      const cpFreqs = tx.counterparty_name?.trim()
+        ? await fetchHistoricalTagFrequencies(
+            env.DB,
+            "counterparty_name",
+            tx.counterparty_name,
+            txIds,
+            userEmail,
+          )
+        : null;
       ragContexts.push({ desc: descFreqs, counterparty: cpFreqs });
 
       const alreadyRows = await env.DB.prepare(
@@ -189,7 +206,9 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
         .bind(tx.id, userEmail)
         .all<{ path: string }>();
       alreadyPerTx.push(
-        alreadyRows.results.map((r) => r.path).filter((p) => !isReservedAutoPath(p)),
+        alreadyRows.results
+          .map((r) => r.path)
+          .filter((p) => !isReservedAutoPath(p)),
       );
     }
 
@@ -199,7 +218,9 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
       const already = alreadyPerTx[i];
 
       const descBlock =
-        desc.length > 0 ? desc.map((f) => `${f.path} (${f.percentage}%)`).join(", ") : "None";
+        desc.length > 0
+          ? desc.map((f) => `${f.path} (${f.percentage}%)`).join(", ")
+          : "None";
       let ragStr = `desc_history: ${descBlock}`;
       if (counterparty !== null) {
         const cpBlock =
@@ -236,19 +257,45 @@ Respond with a JSON array only.`;
     if (useMock) {
       batchItems = mockBatchResponse(txs);
     } else {
-      const aiResp = await env.AI.run("@cf/zai-org/glm-4.7-flash" as Parameters<typeof env.AI.run>[0], {
-        messages: [
-          { role: "system", content: BATCH_SYSTEM_PROMPT },
-          { role: "user", content: userMessage },
-        ],
-        max_tokens: 4096,
-      });
-      const text =
-        typeof (aiResp as { response?: string }).response === "string"
-          ? (aiResp as { response: string }).response
-          : JSON.stringify(aiResp);
+      const aiResp = await env.AI.run(
+        "@cf/meta/llama-3.3-70b-instruct-fp8-fast" satisfies Parameters<
+          typeof env.AI.run
+        >[0],
+        {
+          messages: [
+            { role: "system", content: BATCH_SYSTEM_PROMPT },
+            { role: "user", content: userMessage },
+          ],
+          max_tokens: 4096,
+        },
+      );
+      const resp = (aiResp as { response?: unknown }).response;
+      const choices = (
+        aiResp as { choices?: { message?: { content?: string } }[] }
+      ).choices;
+      let text: string;
+      if (Array.isArray(resp)) {
+        text = JSON.stringify(resp);
+      } else if (typeof resp === "string") {
+        text = resp;
+      } else if (typeof resp === "object" && resp !== null) {
+        text = JSON.stringify(resp);
+      } else if (typeof choices?.[0]?.message?.content === "string") {
+        text = choices[0].message.content;
+      } else {
+        text = JSON.stringify(aiResp);
+      }
       console.log(`[evaluate-batch] AI output:\n${text}`);
       batchItems = parseBatchAIResponse(text);
+      if (batchItems.length === 0) {
+        console.error(
+          `[evaluate-batch] Failed to parse AI response. Raw:\n${JSON.stringify(aiResp)}`,
+        );
+        return Response.json(
+          { error: "AI returned invalid output", raw: text },
+          { status: 502 },
+        );
+      }
     }
 
     // Build a lookup map: txId → batch result
@@ -307,9 +354,10 @@ Respond with a JSON array only.`;
           }
         }
 
-        const reasoning = typeof item.reasoning === "string" && item.reasoning.trim()
-          ? item.reasoning.trim()
-          : null;
+        const reasoning =
+          typeof item.reasoning === "string" && item.reasoning.trim()
+            ? item.reasoning.trim()
+            : null;
 
         for (const path of accepted) {
           const isNew = !existingSet.has(path);

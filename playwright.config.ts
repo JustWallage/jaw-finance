@@ -14,7 +14,7 @@ export default defineConfig({
   reporter: "html",
   use: {
     baseURL: isCi
-      ? "https://staging.jaw-finance.pages.dev"
+      ? (process.env.BASE_URL || "https://staging.jaw-finance.pages.dev")
       : "http://localhost:8788",
     extraHTTPHeaders,
     screenshot: "only-on-failure",
