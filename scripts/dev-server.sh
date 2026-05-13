@@ -21,12 +21,23 @@ check_port 8788
 export CLOUDFLARE_API_TOKEN="${CLOUDFLARE_API_TOKEN:-dummy}"
 export WRANGLER_SEND_METRICS=false
 
+# If not authenticated with CF (dummy token), strip the [ai] binding
+# to avoid wrangler errors. Real local dev keeps the binding for Workers AI.
+if [[ "$CLOUDFLARE_API_TOKEN" == "dummy" ]]; then
+  cp wrangler.toml wrangler.toml.bak
+  sed -i.tmp '/^\[ai\]$/,/^$/d' wrangler.toml
+  rm -f wrangler.toml.tmp
+fi
+
 pids=()
 
 cleanup() {
   for pid in "${pids[@]}"; do
     kill "$pid" 2>/dev/null || true
   done
+  if [[ -f wrangler.toml.bak ]]; then
+    mv wrangler.toml.bak wrangler.toml
+  fi
 }
 trap cleanup EXIT INT TERM
 
