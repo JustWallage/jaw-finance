@@ -1,5 +1,8 @@
 -- Stop using system income/expense and date hierarchy tags.
 -- Remove existing links from transactions and clean up now-unreferenced system tags.
+-- NOTE: D1 rejects the original bracket-heavy GLOB patterns here with
+-- "LIKE or GLOB pattern too complex", so we match date tags with
+-- length + LIKE shape + explicit digit checks via substr().
 
 DELETE FROM transaction_tags
 WHERE tag_id IN (
