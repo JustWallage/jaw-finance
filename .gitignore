@@ -31,3 +31,5 @@ playwright-report/
 
 enable-banking/secrets/
 *.vars
+
+wrangler.toml.bak
