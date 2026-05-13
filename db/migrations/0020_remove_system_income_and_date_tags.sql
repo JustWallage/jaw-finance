@@ -9,9 +9,36 @@ WHERE tag_id IN (
     AND (
       path = 'income'
       OR path = 'expense'
-      OR path GLOB 'year-[0-9][0-9][0-9][0-9]'
-      OR path GLOB 'year-[0-9][0-9][0-9][0-9]/month-[0-9][0-9]'
-      OR path GLOB 'year-[0-9][0-9][0-9][0-9]/month-[0-9][0-9]/day-[0-9][0-9]'
+      OR (
+        length(path) = 9
+        AND path LIKE 'year-____'
+        AND substr(path, 6, 1) BETWEEN '0' AND '9'
+        AND substr(path, 7, 1) BETWEEN '0' AND '9'
+        AND substr(path, 8, 1) BETWEEN '0' AND '9'
+        AND substr(path, 9, 1) BETWEEN '0' AND '9'
+      )
+      OR (
+        length(path) = 18
+        AND path LIKE 'year-____/month-__'
+        AND substr(path, 6, 1) BETWEEN '0' AND '9'
+        AND substr(path, 7, 1) BETWEEN '0' AND '9'
+        AND substr(path, 8, 1) BETWEEN '0' AND '9'
+        AND substr(path, 9, 1) BETWEEN '0' AND '9'
+        AND substr(path, 17, 1) BETWEEN '0' AND '9'
+        AND substr(path, 18, 1) BETWEEN '0' AND '9'
+      )
+      OR (
+        length(path) = 25
+        AND path LIKE 'year-____/month-__/day-__'
+        AND substr(path, 6, 1) BETWEEN '0' AND '9'
+        AND substr(path, 7, 1) BETWEEN '0' AND '9'
+        AND substr(path, 8, 1) BETWEEN '0' AND '9'
+        AND substr(path, 9, 1) BETWEEN '0' AND '9'
+        AND substr(path, 17, 1) BETWEEN '0' AND '9'
+        AND substr(path, 18, 1) BETWEEN '0' AND '9'
+        AND substr(path, 24, 1) BETWEEN '0' AND '9'
+        AND substr(path, 25, 1) BETWEEN '0' AND '9'
+      )
     )
 );
 
@@ -20,9 +47,36 @@ WHERE source = 'system'
   AND (
     path = 'income'
     OR path = 'expense'
-    OR path GLOB 'year-[0-9][0-9][0-9][0-9]'
-    OR path GLOB 'year-[0-9][0-9][0-9][0-9]/month-[0-9][0-9]'
-    OR path GLOB 'year-[0-9][0-9][0-9][0-9]/month-[0-9][0-9]/day-[0-9][0-9]'
+    OR (
+      length(path) = 9
+      AND path LIKE 'year-____'
+      AND substr(path, 6, 1) BETWEEN '0' AND '9'
+      AND substr(path, 7, 1) BETWEEN '0' AND '9'
+      AND substr(path, 8, 1) BETWEEN '0' AND '9'
+      AND substr(path, 9, 1) BETWEEN '0' AND '9'
+    )
+    OR (
+      length(path) = 18
+      AND path LIKE 'year-____/month-__'
+      AND substr(path, 6, 1) BETWEEN '0' AND '9'
+      AND substr(path, 7, 1) BETWEEN '0' AND '9'
+      AND substr(path, 8, 1) BETWEEN '0' AND '9'
+      AND substr(path, 9, 1) BETWEEN '0' AND '9'
+      AND substr(path, 17, 1) BETWEEN '0' AND '9'
+      AND substr(path, 18, 1) BETWEEN '0' AND '9'
+    )
+    OR (
+      length(path) = 25
+      AND path LIKE 'year-____/month-__/day-__'
+      AND substr(path, 6, 1) BETWEEN '0' AND '9'
+      AND substr(path, 7, 1) BETWEEN '0' AND '9'
+      AND substr(path, 8, 1) BETWEEN '0' AND '9'
+      AND substr(path, 9, 1) BETWEEN '0' AND '9'
+      AND substr(path, 17, 1) BETWEEN '0' AND '9'
+      AND substr(path, 18, 1) BETWEEN '0' AND '9'
+      AND substr(path, 24, 1) BETWEEN '0' AND '9'
+      AND substr(path, 25, 1) BETWEEN '0' AND '9'
+    )
   )
   AND NOT EXISTS (
     SELECT 1

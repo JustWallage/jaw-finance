@@ -93,7 +93,10 @@ jobs:
             wrangler.toml.template > wrangler.toml
 
       - name: Run DB Migrations
-        run: pnpm exec wrangler d1 migrations apply DB --remote --env preview
+        run: |
+          mkdir -p /tmp/ci-logs
+          set -o pipefail
+          pnpm exec wrangler d1 migrations apply DB --remote --env preview 2>&1 | tee /tmp/ci-logs/wrangler-d1-migrations.log
 
       - name: Deploy to branch
         run: pnpm exec wrangler pages deploy dist --project-name jaw-finance --branch ${{ steps.url.outputs.sanitized_branch }} --commit-dirty=true
@@ -115,4 +118,14 @@ jobs:
           path: |
             playwright-report/
             test-results/
+          retention-days: 7
+
+      - name: Upload Wrangler logs
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: wrangler-logs
+          path: |
+            /tmp/ci-logs/
+            /home/runner/.config/.wrangler/logs/
           retention-days: 7
