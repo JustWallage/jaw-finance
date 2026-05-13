@@ -131,35 +131,33 @@ test.describe("Transaction tagging", () => {
     await expect(dialog.getByTestId("tag-badge-to-delete")).toBeHidden();
   });
 
-  test("auto-tags: only leaf date tag is linked, ancestors exist in tags table", async ({
+  test("refresh does not auto-assign system flow or date tags", async ({
     page,
     request,
   }) => {
     await connectAndRefresh(page);
 
-    // Check tags table — all ancestor tags should exist
+    // System flow/date tags should not be created.
     const tagsRes = await request.get("/api/tags");
     const tagsData = (await tagsRes.json()) as {
       tags: Array<{ path: string }>;
     };
     const allPaths = tagsData.tags.map((t) => t.path);
 
-    expect(allPaths).toContain("income");
-    expect(allPaths).toContain("expense");
-
-    // Ancestor tags exist in the tags table
     const yearTags = allPaths.filter((p) => /^year-\d{4}$/.test(p));
-    expect(yearTags.length).toBeGreaterThan(0);
     const monthTags = allPaths.filter((p) =>
       /^year-\d{4}\/month-\d{2}$/.test(p),
     );
-    expect(monthTags.length).toBeGreaterThan(0);
     const dayTags = allPaths.filter((p) =>
       /^year-\d{4}\/month-\d{2}\/day-\d{2}$/.test(p),
     );
-    expect(dayTags.length).toBeGreaterThan(0);
+    expect(allPaths).not.toContain("income");
+    expect(allPaths).not.toContain("expense");
+    expect(yearTags.length).toBe(0);
+    expect(monthTags.length).toBe(0);
+    expect(dayTags.length).toBe(0);
 
-    // But only leaf tags are linked to transactions
+    // And they should not be linked to transactions either.
     const txRes = await request.get("/api/bank/transactions");
     const txData = (await txRes.json()) as {
       transactions: Array<{ id: number }>;
@@ -172,25 +170,20 @@ test.describe("Transaction tagging", () => {
     };
     const linkedPaths = txTagsData.tags.map((t) => t.path);
 
-    // Should have income or expense (leaf — no children)
-    const hasFlowTag = linkedPaths.some(
+    const hasSystemFlowTag = linkedPaths.some(
       (p) => p === "income" || p === "expense",
     );
-    expect(hasFlowTag).toBe(true);
-
-    // Should have a day-level tag linked, but NOT year or month alone
+    const linkedYearTags = linkedPaths.filter((p) => /^year-\d{4}$/.test(p));
+    const linkedMonthTags = linkedPaths.filter((p) =>
+      /^year-\d{4}\/month-\d{2}$/.test(p),
+    );
     const linkedDayTags = linkedPaths.filter((p) =>
       /^year-\d{4}\/month-\d{2}\/day-\d{2}$/.test(p),
     );
-    expect(linkedDayTags.length).toBe(1);
-
-    const linkedYearOnly = linkedPaths.filter((p) => /^year-\d{4}$/.test(p));
-    expect(linkedYearOnly.length).toBe(0);
-
-    const linkedMonthOnly = linkedPaths.filter((p) =>
-      /^year-\d{4}\/month-\d{2}$/.test(p),
-    );
-    expect(linkedMonthOnly.length).toBe(0);
+    expect(hasSystemFlowTag).toBe(false);
+    expect(linkedYearTags.length).toBe(0);
+    expect(linkedMonthTags.length).toBe(0);
+    expect(linkedDayTags.length).toBe(0);
   });
 
   test("assigning child tag removes parent tag link (consolidation)", async ({

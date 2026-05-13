@@ -1,5 +1,4 @@
 import { ebFetch, getUserEmail, type EBEnv } from "../../lib/enable-banking";
-import { autoTagTransaction } from "../../lib/auto-tag";
 import type { EBTransactionsResponse } from "../../../db/types";
 
 export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
@@ -75,24 +74,6 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
               userEmail,
             )
             .run();
-
-          // Auto-tag newly inserted transaction
-          if (tx.entry_reference) {
-            const row = await env.DB.prepare(
-              "SELECT id FROM transactions WHERE entry_reference = ? AND account_uid = ? AND user_email = ?",
-            )
-              .bind(tx.entry_reference, conn.account_uid, userEmail)
-              .first<{ id: number }>();
-            if (row) {
-              await autoTagTransaction(
-                env.DB,
-                row.id,
-                tx.credit_debit_indicator,
-                tx.booking_date ?? null,
-                userEmail,
-              );
-            }
-          }
 
           totalSynced++;
         }
