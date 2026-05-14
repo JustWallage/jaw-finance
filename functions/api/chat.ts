@@ -104,6 +104,7 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
           transactions: [],
           totalIncome: 0,
           totalExpense: 0,
+          byPath: [],
         });
       }
       queries = parsed;
@@ -146,6 +147,7 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
       transactions: result.transactions,
       totalIncome: result.totalIncome,
       totalExpense: result.totalExpense,
+      byPath: result.byPath,
     });
   } catch (err) {
     console.error("[chat] Error:", err);

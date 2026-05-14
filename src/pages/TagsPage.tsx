@@ -20,6 +20,7 @@ interface QueryResult {
   transactions: DBTransaction[];
   totalIncome: number;
   totalExpense: number;
+  byPath: { path: string; totalIncome: number; totalExpense: number; count: number }[];
 }
 
 type TagStatus = "confirmed" | "unconfirmed" | "rejected";
@@ -397,7 +398,8 @@ function TagQuerySearch() {
         const body = await res.json().catch(() => ({})) as { error?: string };
         throw new Error(body.error ?? "Request failed");
       }
-      setResult(await res.json() as QueryResult);
+      const raw = (await res.json()) as Omit<QueryResult, "byPath"> & { byPath?: QueryResult["byPath"] };
+      setResult({ ...raw, byPath: raw.byPath ?? [] });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
@@ -478,6 +480,25 @@ function TagQuerySearch() {
               Expense: {result?.totalExpense.toFixed(2)}
             </span>
           </div>
+
+          {result?.byPath && result.byPath.length > 0 && (
+            <div data-testid="query-by-path" className="space-y-1">
+              {result.byPath.map((p) => (
+                <div key={p.path} className="flex items-center justify-between text-xs" data-testid={`query-path-${p.path}`}>
+                  <span className="text-muted-foreground font-mono">{p.path}</span>
+                  <span className="flex gap-3 shrink-0">
+                    {p.totalIncome > 0 && (
+                      <span className="text-green-500">+{p.totalIncome.toFixed(2)}</span>
+                    )}
+                    {p.totalExpense > 0 && (
+                      <span className="text-red-500">-{p.totalExpense.toFixed(2)}</span>
+                    )}
+                    <span className="text-muted-foreground">{p.count} tx</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="max-h-72 overflow-y-auto space-y-1">
             {result?.transactions.length === 0 && (

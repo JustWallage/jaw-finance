@@ -161,6 +161,7 @@ test.describe("Natural language chat", () => {
       transactions: Array<{ id: number }>;
       totalIncome: number;
       totalExpense: number;
+      byPath: Array<{ path: string; totalIncome: number; totalExpense: number; count: number }>;
     };
 
     expect(data.summary).toBeTruthy();
@@ -168,6 +169,15 @@ test.describe("Natural language chat", () => {
     expect(Array.isArray(data.transactions)).toBe(true);
     expect(typeof data.totalIncome).toBe("number");
     expect(typeof data.totalExpense).toBe("number");
+    expect(Array.isArray(data.byPath)).toBe(true);
+    if (data.transactions.length > 0) {
+      expect(data.byPath.length).toBeGreaterThan(0);
+      const first = data.byPath[0];
+      expect(typeof first.path).toBe("string");
+      expect(typeof first.totalIncome).toBe("number");
+      expect(typeof first.totalExpense).toBe("number");
+      expect(typeof first.count).toBe("number");
+    }
   });
 
   test("chat endpoint rejects empty question", async ({ page, request }) => {

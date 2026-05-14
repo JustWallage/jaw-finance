@@ -120,6 +120,7 @@ export default function HomePage() {
     transactions: DBTransaction[];
     totalIncome: number;
     totalExpense: number;
+    byPath: { path: string; totalIncome: number; totalExpense: number; count: number }[];
   } | null>(null);
   const [chatExpanded, setChatExpanded] = useState(false);
   const chatInputRef = useRef<HTMLInputElement>(null);
@@ -225,15 +226,17 @@ export default function HomePage() {
         transactions: DBTransaction[];
         totalIncome: number;
         totalExpense: number;
+        byPath?: { path: string; totalIncome: number; totalExpense: number; count: number }[];
       };
       if (data.error) throw new Error(data.error);
-      setChatResult(data);
+      setChatResult({ ...data, byPath: data.byPath ?? [] });
     } catch {
       setChatResult({
         summary: "Something went wrong. Please try again.",
         transactions: [],
         totalIncome: 0,
         totalExpense: 0,
+        byPath: [],
       });
     } finally {
       setChatLoading(false);
@@ -504,6 +507,24 @@ export default function HomePage() {
                   -{chatResult.totalExpense.toFixed(2)} EUR
                 </span>
               </div>
+              {chatResult.byPath.length > 0 && (
+                <div data-testid="chat-by-path" className="space-y-1">
+                  {chatResult.byPath.map((p) => (
+                    <div key={p.path} className="flex items-center justify-between text-xs" data-testid={`chat-path-${p.path}`}>
+                      <span className="text-muted-foreground font-mono">{p.path}</span>
+                      <span className="flex gap-3 shrink-0">
+                        {p.totalIncome > 0 && (
+                          <span className="text-green-500">+{p.totalIncome.toFixed(2)}</span>
+                        )}
+                        {p.totalExpense > 0 && (
+                          <span className="text-red-500">-{p.totalExpense.toFixed(2)}</span>
+                        )}
+                        <span className="text-muted-foreground">{p.count} tx</span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
               {chatResult.transactions.length > 0 ? (
                 <Button
                   variant="outline"
