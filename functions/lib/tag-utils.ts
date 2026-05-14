@@ -1,5 +1,6 @@
 import type { EBEnv } from "./enable-banking";
 import type { TagSource, TagStatus } from "../../db/types";
+import type { HistoricalFrequency } from "./ai-prompt-building";
 
 /**
  * Ensure a tag and all its ancestor tags exist in the tags table.
@@ -92,4 +93,52 @@ export async function assignTagConsolidated(
     .run();
 
   return tagId;
+}
+
+/** Query D1 for tag frequency distribution across transactions matching a field value.
+ *  Returns tags appearing in strictly more than 10% of matching transactions.
+ *  `excludeIds` can be a single id or array of ids to omit from the analysis. */
+export async function fetchHistoricalTagFrequencies(
+  db: EBEnv["DB"],
+  field: "remittance_info" | "counterparty_name",
+  value: string,
+  excludeIds: number | number[],
+  userEmail: string,
+): Promise<HistoricalFrequency[]> {
+  const ALLOWED_FIELDS = new Set(["remittance_info", "counterparty_name"]);
+  if (!ALLOWED_FIELDS.has(field)) return [];
+
+  const ids = Array.isArray(excludeIds) ? excludeIds : [excludeIds];
+  const placeholders = ids.map(() => "?").join(", ");
+
+  const totalRow = await db
+    .prepare(
+      `SELECT COUNT(*) as cnt FROM transactions WHERE ${field} = ? AND user_email = ? AND id NOT IN (${placeholders})`,
+    )
+    .bind(value, userEmail, ...ids)
+    .first<{ cnt: number }>();
+
+  const total = totalRow?.cnt ?? 0;
+  if (total === 0) return [];
+
+  const tagRows = await db
+    .prepare(
+      `SELECT t.path, COUNT(*) as cnt
+       FROM transaction_tags tt
+       JOIN tags t ON t.id = tt.tag_id
+       JOIN transactions tr ON tr.id = tt.transaction_id
+       WHERE tr.${field} = ? AND tr.user_email = ? AND tt.transaction_id NOT IN (${placeholders})
+         AND t.source != 'system' AND t.status != 'rejected'
+       GROUP BY t.path`,
+    )
+    .bind(value, userEmail, ...ids)
+    .all<{ path: string; cnt: number }>();
+
+  return tagRows.results
+    .map((r) => ({
+      path: r.path,
+      percentage: Math.round((r.cnt / total) * 100),
+    }))
+    .filter((r) => r.percentage > 10)
+    .sort((a, b) => b.percentage - a.percentage);
 }

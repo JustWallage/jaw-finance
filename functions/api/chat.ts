@@ -1,5 +1,6 @@
 import { getUserEmail, type EBEnv } from "../lib/enable-banking";
 import { executeTagQuery, type QueryObject } from "../lib/query-utils";
+import { extractAIText, parseQueryArray } from "../lib/ai-response";
 import type { DBTag } from "../../db/types";
 
 const QUERY_SYSTEM_PROMPT = `You are a financial query translator. The current date and time is: {{CURRENT_DATETIME}}.
@@ -26,49 +27,6 @@ Examples:
 Output ONLY the JSON array.`;
 
 const SUMMARY_SYSTEM_PROMPT = `You are a friendly financial assistant. Given the user's original question and query results, write a short friendly message that answers their question. Use the exact numbers provided. Do not output JSON. Only plain text.`;
-
-function stripMarkdownCodeBlocks(text: string): string {
-  return text
-    .replace(/```(?:json)?\s*/gi, "")
-    .replace(/```/g, "")
-    .trim();
-}
-
-function parseQueryArray(raw: string): QueryObject[] | null {
-  const cleaned = stripMarkdownCodeBlocks(raw);
-  const match = cleaned.match(/\[[\s\S]*\]/);
-  if (!match) return null;
-  try {
-    const parsed = JSON.parse(match[0]);
-    if (!Array.isArray(parsed)) return null;
-    return parsed.filter(
-      (q: unknown): q is QueryObject =>
-        typeof q === "object" &&
-        q !== null &&
-        Array.isArray((q as QueryObject).tagGlobs),
-    );
-  } catch {
-    return null;
-  }
-}
-
-function extractAIText(aiResp: unknown): string {
-  const resp = (aiResp as { response?: unknown }).response;
-  if (typeof resp === "string") return resp;
-  if (typeof resp === "object" && resp !== null) return JSON.stringify(resp);
-  const choices = (
-    aiResp as {
-      choices?: {
-        message?: { content?: string | null; reasoning_content?: string };
-      }[];
-    }
-  ).choices;
-  if (typeof choices?.[0]?.message?.content === "string")
-    return choices[0].message.content;
-  if (typeof choices?.[0]?.message?.reasoning_content === "string")
-    return choices[0].message.reasoning_content;
-  return JSON.stringify(aiResp);
-}
 
 function mockQueryResponse(): QueryObject[] {
   return [{ tagGlobs: ["food", "food/*"] }];
@@ -134,12 +92,11 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
           max_tokens: 500,
         },
       );
-      const text = extractAIText(aiResp);
       console.log(
         `[chat] Pass 1 input: system=${systemPrompt}\nuser=${question}\n[chat] Pass 1 output:\n${JSON.stringify(aiResp)}`,
       );
 
-      const parsed = parseQueryArray(text);
+      const parsed = parseQueryArray(aiResp);
       if (!parsed || parsed.length === 0) {
         return Response.json({
           summary:
