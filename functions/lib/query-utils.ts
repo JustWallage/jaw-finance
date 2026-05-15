@@ -76,7 +76,8 @@ export async function executeTagQuery(
     LIMIT 500
   `;
 
-  const txResult = await db.prepare(txQuery)
+  const txResult = await db
+    .prepare(txQuery)
     .bind(...allBindings)
     .all<DBTransaction>();
 
@@ -92,7 +93,8 @@ export async function executeTagQuery(
     ) tx
   `;
 
-  const agg = await db.prepare(aggQuery)
+  const agg = await db
+    .prepare(aggQuery)
     .bind(...allBindings)
     .first<{ total_income: number; total_expense: number }>();
 
@@ -110,9 +112,15 @@ export async function executeTagQuery(
     ORDER BY total_expense DESC, total_income DESC
   `;
 
-  const pathAgg = await db.prepare(pathAggQuery)
+  const pathAgg = await db
+    .prepare(pathAggQuery)
     .bind(...allBindings)
-    .all<{ path: string; count: number; total_income: number; total_expense: number }>();
+    .all<{
+      path: string;
+      count: number;
+      total_income: number;
+      total_expense: number;
+    }>();
 
   return {
     transactions: txResult.results,

@@ -122,7 +122,17 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
         result.totalExpense,
       );
     } else {
-      const summaryUserMsg = `Question: "${question}"\nResults: ${result.transactions.length} transactions, total income: ${result.totalIncome.toFixed(2)} EUR, total expenses: ${result.totalExpense.toFixed(2)} EUR.`;
+      const breakdownStr =
+        result.byPath.length > 0
+          ? "\nBreakdown by tag:\n" +
+            result.byPath
+              .map(
+                (b) =>
+                  `- ${b.path}: ${b.count} txs, ${b.totalExpense.toFixed(2)} EUR expense, ${b.totalIncome.toFixed(2)} EUR income`,
+              )
+              .join("\n")
+          : "";
+      const summaryUserMsg = `Question: "${question}"\nResults: ${result.transactions.length} transactions, total income: ${result.totalIncome.toFixed(2)} EUR, total expenses: ${result.totalExpense.toFixed(2)} EUR.${breakdownStr}`;
       console.log(
         `[chat] Pass 2 input: system=${SUMMARY_SYSTEM_PROMPT}\nuser=${summaryUserMsg}`,
       );
