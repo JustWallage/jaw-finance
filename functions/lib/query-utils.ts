@@ -6,10 +6,18 @@ export interface QueryObject {
   tagGlobs: string[];
 }
 
+export interface PathAggregate {
+  path: string;
+  totalIncome: number;
+  totalExpense: number;
+  count: number;
+}
+
 export interface QueryResult {
   transactions: DBTransaction[];
   totalIncome: number;
   totalExpense: number;
+  byPath: PathAggregate[];
 }
 
 /** Execute a tag-based query with GLOB matching, date filtering, and OR logic
@@ -53,7 +61,7 @@ export async function executeTagQuery(
   }
 
   if (queryGroups.length === 0) {
-    return { transactions: [], totalIncome: 0, totalExpense: 0 };
+    return { transactions: [], totalIncome: 0, totalExpense: 0, byPath: [] };
   }
 
   const where = `${baseConditions.join(" AND ")} AND (${queryGroups.join(" OR ")})`;
@@ -68,7 +76,8 @@ export async function executeTagQuery(
     LIMIT 500
   `;
 
-  const txResult = await db.prepare(txQuery)
+  const txResult = await db
+    .prepare(txQuery)
     .bind(...allBindings)
     .all<DBTransaction>();
 
@@ -84,13 +93,44 @@ export async function executeTagQuery(
     ) tx
   `;
 
-  const agg = await db.prepare(aggQuery)
+  const agg = await db
+    .prepare(aggQuery)
     .bind(...allBindings)
     .first<{ total_income: number; total_expense: number }>();
+
+  const pathAggQuery = `
+    SELECT
+      t.path,
+      COUNT(tx.id) AS count,
+      COALESCE(SUM(CASE WHEN tx.credit_debit = 'CRDT' THEN CAST(tx.amount AS REAL) ELSE 0 END), 0) AS total_income,
+      COALESCE(SUM(CASE WHEN tx.credit_debit = 'DBIT' THEN CAST(tx.amount AS REAL) ELSE 0 END), 0) AS total_expense
+    FROM transactions tx
+    JOIN transaction_tags tt ON tx.id = tt.transaction_id
+    JOIN tags t ON tt.tag_id = t.id
+    WHERE ${where}
+    GROUP BY t.path
+    ORDER BY total_expense DESC, total_income DESC
+  `;
+
+  const pathAgg = await db
+    .prepare(pathAggQuery)
+    .bind(...allBindings)
+    .all<{
+      path: string;
+      count: number;
+      total_income: number;
+      total_expense: number;
+    }>();
 
   return {
     transactions: txResult.results,
     totalIncome: agg?.total_income ?? 0,
     totalExpense: agg?.total_expense ?? 0,
+    byPath: pathAgg.results.map((r) => ({
+      path: r.path,
+      totalIncome: r.total_income,
+      totalExpense: r.total_expense,
+      count: r.count,
+    })),
   };
 }
