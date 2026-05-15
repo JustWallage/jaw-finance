@@ -17,7 +17,7 @@ import {
   type BatchEvalItem,
 } from "../../lib/ai-response";
 
-const BATCH_SIZE = 50;
+const BATCH_SIZE = 15;
 
 function mockBatchResponse(txs: DBTransaction[]): BatchEvalItem[] {
   return txs.map((tx) => ({
