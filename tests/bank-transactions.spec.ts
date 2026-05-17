@@ -26,13 +26,15 @@ test.describe("Bank connection flow via mock", () => {
     }, email);
     void page;
     await request.post("/mock-enable-banking/reset");
-    await request.post("/api/consent", { headers: { [userEmailHeader]: email } });
+    await request.post("/api/consent", {
+      headers: { [userEmailHeader]: email },
+    });
   });
 
   test("user connects bank successfully and sees transactions", async ({
     page,
   }) => {
-    await page.goto("/");
+    await page.goto("/settings");
 
     // Should show Connect Bank button when no connection exists
     const connectBtn = page.getByTestId("connect-button");
@@ -56,24 +58,26 @@ test.describe("Bank connection flow via mock", () => {
     // App clears the query param on load
     await expect(page.locator("h1")).toContainText("JAW Finance");
 
-    // Now refresh transactions
+    // Refresh transactions from settings
+    await page.goto("/settings");
     const refreshBtn = page.getByTestId("refresh-button");
     await expect(refreshBtn).toBeVisible({ timeout: 5_000 });
     await refreshBtn.click();
 
-    // Transactions table should appear with mock data
-    const table = page.getByTestId("transactions-table");
-    await expect(table).toBeVisible({ timeout: 10_000 });
-    await expect(table).toContainText("Employer BV");
-    await expect(table).toContainText("1250.00");
-    await expect(table).toContainText("Albert Heijn");
-    await expect(table).toContainText("42.50");
+    // Navigate to home and verify transactions
+    await page.goto("/");
+    const feed = page.getByTestId("transactions-table");
+    await expect(feed).toBeVisible({ timeout: 10_000 });
+    await expect(feed).toContainText("Employer BV");
+    await expect(feed).toContainText("1250.00");
+    await expect(feed).toContainText("Albert Heijn");
+    await expect(feed).toContainText("42.50");
   });
 
   test("bank selection dialog shows banks and supports search", async ({
     page,
   }) => {
-    await page.goto("/");
+    await page.goto("/settings");
 
     await page.getByTestId("connect-button").click();
 
@@ -92,7 +96,7 @@ test.describe("Bank connection flow via mock", () => {
   });
 
   test("user cancels bank connection and sees error", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/settings");
 
     const connectBtn = page.getByTestId("connect-button");
     await expect(connectBtn).toBeVisible();
@@ -102,8 +106,9 @@ test.describe("Bank connection flow via mock", () => {
     await page.waitForURL("**/mock-enable-banking/consent**");
     await page.getByTestId("simulate-cancel").click();
 
-    // Should redirect back with error
+    // Should redirect back with error — navigate to settings to see it
     await page.waitForURL("**/?bank_error=**");
+    await page.getByTestId("nav-settings").click();
     const errorAlert = page.getByTestId("error-alert");
     await expect(errorAlert).toBeVisible();
     await expect(errorAlert).toContainText("Denied data sharing consent");
@@ -112,7 +117,7 @@ test.describe("Bank connection flow via mock", () => {
   test("user sees failure error when bank connection fails", async ({
     page,
   }) => {
-    await page.goto("/");
+    await page.goto("/settings");
 
     const connectBtn = page.getByTestId("connect-button");
     await expect(connectBtn).toBeVisible();
@@ -122,8 +127,9 @@ test.describe("Bank connection flow via mock", () => {
     await page.waitForURL("**/mock-enable-banking/consent**");
     await page.getByTestId("simulate-failure").click();
 
-    // Should redirect back with ASPSP failure error
+    // Should redirect back with ASPSP failure error — navigate to settings to see it
     await page.waitForURL("**/?bank_error=**");
+    await page.getByTestId("nav-settings").click();
     const errorAlert = page.getByTestId("error-alert");
     await expect(errorAlert).toBeVisible();
     await expect(errorAlert).toContainText("ASPSP connection failed");
@@ -154,7 +160,7 @@ test.describe("Bank connection flow via mock", () => {
       }),
     );
 
-    await page.goto("/");
+    await page.goto("/settings");
 
     const warning = page.getByTestId("expiry-warning");
     await expect(warning).toBeVisible({ timeout: 5_000 });
@@ -167,7 +173,7 @@ test.describe("Bank connection flow via mock", () => {
   test("duplicate transactions are not inserted on reconnect", async ({
     page,
   }) => {
-    await page.goto("/");
+    await page.goto("/settings");
 
     // First connection: connect and refresh
     await page.getByTestId("connect-button").click();
@@ -176,32 +182,36 @@ test.describe("Bank connection flow via mock", () => {
     await page.getByTestId("simulate-success").click();
     await page.waitForURL("**/?connected=true");
 
+    await page.goto("/settings");
     const refreshBtn = page.getByTestId("refresh-button");
     await expect(refreshBtn).toBeVisible({ timeout: 5_000 });
     await refreshBtn.click();
 
-    const table = page.getByTestId("transactions-table");
-    await expect(table).toBeVisible({ timeout: 10_000 });
+    await page.goto("/");
+    const feed = page.getByTestId("transactions-table");
+    await expect(feed).toBeVisible({ timeout: 10_000 });
 
-    const firstCount = await table.locator("tbody tr").count();
+    const firstCount = await feed.locator("[data-testid^='tx-row-']").count();
     expect(firstCount).toBeGreaterThan(0);
 
-    // Second connection: open user menu and reconnect
-    await page.getByTestId("user-menu-trigger").click();
+    // Second connection: reconnect from settings
+    await page.goto("/settings");
     await page.getByTestId("reconnect-button").click();
     await page.getByTestId("bank-option-bunq").click();
     await page.waitForURL("**/mock-enable-banking/consent**");
     await page.getByTestId("simulate-success").click();
     await page.waitForURL("**/?connected=true");
 
+    await page.goto("/settings");
     const refreshBtn2 = page.getByTestId("refresh-button");
     await expect(refreshBtn2).toBeVisible({ timeout: 5_000 });
     await refreshBtn2.click();
 
-    // Wait for table to re-render with fresh data
-    await expect(table).toBeVisible({ timeout: 10_000 });
+    await page.goto("/");
+    // Wait for feed to re-render with fresh data
+    await expect(feed).toBeVisible({ timeout: 10_000 });
 
-    const secondCount = await table.locator("tbody tr").count();
+    const secondCount = await feed.locator("[data-testid^='tx-row-']").count();
     expect(secondCount).toBe(firstCount);
   });
 
@@ -209,7 +219,7 @@ test.describe("Bank connection flow via mock", () => {
     page,
   }) => {
     test.slow(); // import flow processes multiple date ranges via API
-    await page.goto("/");
+    await page.goto("/settings");
 
     // Connect bank first
     await page.getByTestId("connect-button").click();
@@ -218,8 +228,8 @@ test.describe("Bank connection flow via mock", () => {
     await page.getByTestId("simulate-success").click();
     await page.waitForURL("**/?connected=true");
 
-    // Wait for connection to be active, then open user menu for import
-    await page.getByTestId("user-menu-trigger").click();
+    // Navigate to settings for import
+    await page.goto("/settings");
     const importBtn = page.getByTestId("import-history-button");
     await expect(importBtn).toBeVisible({ timeout: 5_000 });
 
@@ -235,15 +245,17 @@ test.describe("Bank connection flow via mock", () => {
     // Wait for import to finish
     await expect(progress).toBeHidden({ timeout: 60_000 });
 
-    // Table should now have historical transactions
-    const table = page.getByTestId("transactions-table");
-    await expect(table).toBeVisible({ timeout: 10_000 });
+    // Navigate to home and check transactions
+    await page.goto("/");
+    const feed = page.getByTestId("transactions-table");
+    await expect(feed).toBeVisible({ timeout: 10_000 });
 
-    // Should have transactions from the historical import (3 per month * 12 months = 36)
-    const rowCount = await table.locator("tbody tr").count();
+    // Should have transactions from the historical import
+    const rowCount = await feed.locator("[data-testid^='tx-row-']").count();
     expect(rowCount).toBeGreaterThan(0);
 
-    // App should remain responsive — verify we can still interact
+    // App should remain responsive — verify settings is reachable
+    await page.goto("/settings");
     await expect(page.getByTestId("refresh-button")).toBeEnabled();
   });
 
@@ -251,7 +263,7 @@ test.describe("Bank connection flow via mock", () => {
     page,
     request,
   }) => {
-    await page.goto("/");
+    await page.goto("/settings");
 
     // Connect bank
     await page.getByTestId("connect-button").click();
@@ -259,6 +271,9 @@ test.describe("Bank connection flow via mock", () => {
     await page.waitForURL("**/mock-enable-banking/consent**");
     await page.getByTestId("simulate-success").click();
     await page.waitForURL("**/?connected=true");
+
+    // Navigate to settings to verify connection is active
+    await page.goto("/settings");
 
     // First refresh: no transactions in DB, falls back to 90 days ago →
     // current account: 5 recent txns + savings account: 3 recent txns = 8

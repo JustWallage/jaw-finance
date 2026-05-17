@@ -19,20 +19,22 @@ test.use({
 });
 
 async function connectAndRefresh(page: Page) {
-  await page.goto("/");
+  await page.goto("/settings");
   await page.getByTestId("connect-button").click();
   await page.getByTestId("bank-option-bunq").click();
   await page.waitForURL("**/mock-enable-banking/consent**");
   await page.getByTestId("simulate-success").click();
   await page.waitForURL("**/?connected=true");
 
+  await page.goto("/settings");
   const refreshBtn = page.getByTestId("refresh-button");
   await expect(refreshBtn).toBeVisible({ timeout: 5_000 });
   await refreshBtn.click();
 
-  const table = page.getByTestId("transactions-table");
-  await expect(table).toBeVisible({ timeout: 10_000 });
-  return table;
+  await page.goto("/");
+  const feed = page.getByTestId("transactions-table");
+  await expect(feed).toBeVisible({ timeout: 10_000 });
+  return feed;
 }
 
 test.describe("Transaction tagging", () => {
@@ -43,7 +45,9 @@ test.describe("Transaction tagging", () => {
     }, email);
     void page;
     await request.post("/mock-enable-banking/reset");
-    await request.post("/api/consent", { headers: { [userEmailHeader]: email } });
+    await request.post("/api/consent", {
+      headers: { [userEmailHeader]: email },
+    });
   });
 
   test("create a nested tag inline and assign it to a transaction", async ({
@@ -52,7 +56,7 @@ test.describe("Transaction tagging", () => {
     const table = await connectAndRefresh(page);
 
     // Click the first transaction row to open dialog
-    await table.locator("tbody tr").first().click();
+    await table.locator("[data-testid^='tx-row-']").first().click();
     const dialog = page.getByTestId("transaction-dialog");
     await expect(dialog).toBeVisible();
 
@@ -71,7 +75,7 @@ test.describe("Transaction tagging", () => {
     const table = await connectAndRefresh(page);
 
     // Open first transaction dialog and create a tag
-    await table.locator("tbody tr").first().click();
+    await table.locator("[data-testid^='tx-row-']").first().click();
     const dialog = page.getByTestId("transaction-dialog");
     await expect(dialog).toBeVisible();
 
@@ -94,7 +98,7 @@ test.describe("Transaction tagging", () => {
     const table = await connectAndRefresh(page);
 
     // Open first transaction and create a tag
-    await table.locator("tbody tr").nth(0).click();
+    await table.locator("[data-testid^='tx-row-']").nth(0).click();
     let dialog = page.getByTestId("transaction-dialog");
     await expect(dialog).toBeVisible();
 
@@ -107,7 +111,7 @@ test.describe("Transaction tagging", () => {
     await page.locator("body").click({ position: { x: 0, y: 0 } });
     await expect(dialog).toBeHidden();
 
-    await table.locator("tbody tr").nth(1).click();
+    await table.locator("[data-testid^='tx-row-']").nth(1).click();
     dialog = page.getByTestId("transaction-dialog");
     await expect(dialog).toBeVisible();
 

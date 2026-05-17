@@ -1,0 +1,1 @@
+Also the input box for asking questions should be bigger, and the send button should be inside the input box, like the chatgpt style input

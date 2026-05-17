@@ -1,4 +1,9 @@
-import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
+import {
+  test,
+  expect,
+  type Page,
+  type APIRequestContext,
+} from "@playwright/test";
 
 const isCi = !!process.env.CI;
 
@@ -28,30 +33,34 @@ test.beforeEach(async ({ page, context, request }, testInfo) => {
   }, email);
   void page;
   await request.post("/mock-enable-banking/reset");
-    await request.post("/api/consent", { headers: { [userEmailHeader]: email } });
+  await request.post("/api/consent", { headers: { [userEmailHeader]: email } });
 });
 
 async function connectAndRefresh(page: Page) {
-  await page.goto("/");
+  await page.goto("/settings");
   await page.getByTestId("connect-button").click();
   await page.getByTestId("bank-option-bunq").click();
   await page.waitForURL("**/mock-enable-banking/consent**");
   await page.getByTestId("simulate-success").click();
   await page.waitForURL("**/?connected=true");
 
+  await page.goto("/settings");
   const refreshBtn = page.getByTestId("refresh-button");
   await expect(refreshBtn).toBeVisible({ timeout: 5_000 });
   await refreshBtn.click();
 
-  const table = page.getByTestId("transactions-table");
-  await expect(table).toBeVisible({ timeout: 10_000 });
-  return table;
+  await page.goto("/");
+  const feed = page.getByTestId("transactions-table");
+  await expect(feed).toBeVisible({ timeout: 10_000 });
+  return feed;
 }
 
 async function seedFoodTag(request: APIRequestContext) {
   // Create a "food" tag and assign to first transaction so the mock NL query returns results
   const txRes = await request.get("/api/bank/transactions");
-  const txData = (await txRes.json()) as { transactions: Array<{ id: number }> };
+  const txData = (await txRes.json()) as {
+    transactions: Array<{ id: number }>;
+  };
   const txId = txData.transactions[0].id;
 
   const tagRes = await request.post("/api/tags", {
@@ -67,12 +76,13 @@ async function seedFoodTag(request: APIRequestContext) {
 test.describe("Natural language chat", () => {
   test("chat input is visible after connecting bank", async ({ page }) => {
     await page.goto("/");
-    // Chat should not be visible without a connection
-    await expect(page.getByTestId("chat-form")).not.toBeVisible();
+    // Chat should be visible but disabled without a connection
+    await expect(page.getByTestId("chat-form")).toBeVisible();
+    await expect(page.getByTestId("chat-input")).toBeDisabled();
 
     await connectAndRefresh(page);
     await expect(page.getByTestId("chat-form")).toBeVisible();
-    await expect(page.getByTestId("chat-input")).toBeVisible();
+    await expect(page.getByTestId("chat-input")).toBeEnabled();
     await expect(page.getByTestId("chat-submit")).toBeVisible();
   });
 
@@ -83,13 +93,16 @@ test.describe("Natural language chat", () => {
     await connectAndRefresh(page);
     await seedFoodTag(request);
 
-    // Type question and submit
+    // Type question and submit (navigates to /chat)
     await page.getByTestId("chat-input").fill("How much did I spend on food?");
     await page.getByTestId("chat-submit").click();
 
+    // Should navigate to chat page
+    await page.waitForURL("**/chat**");
+
     // Wait for result card
     const card = page.getByTestId("chat-result-card");
-    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card).toBeVisible({ timeout: 15_000 });
 
     // Summary text should be present
     const summary = card.getByTestId("chat-summary");
@@ -111,8 +124,11 @@ test.describe("Natural language chat", () => {
     await page.getByTestId("chat-input").fill("Show my food transactions");
     await page.getByTestId("chat-submit").click();
 
+    // Navigate to chat page
+    await page.waitForURL("**/chat**");
+
     const card = page.getByTestId("chat-result-card");
-    await expect(card).toBeVisible({ timeout: 10_000 });
+    await expect(card).toBeVisible({ timeout: 15_000 });
 
     // Toggle button should reference transaction count
     const toggleBtn = card.getByTestId("chat-toggle-transactions");
@@ -147,7 +163,10 @@ test.describe("Natural language chat", () => {
     await expect(submitBtn).toBeDisabled();
   });
 
-  test("chat endpoint returns structured data via API", async ({ page, request }) => {
+  test("chat endpoint returns structured data via API", async ({
+    page,
+    request,
+  }) => {
     await connectAndRefresh(page);
     await seedFoodTag(request);
 
@@ -161,7 +180,12 @@ test.describe("Natural language chat", () => {
       transactions: Array<{ id: number }>;
       totalIncome: number;
       totalExpense: number;
-      byPath: Array<{ path: string; totalIncome: number; totalExpense: number; count: number }>;
+      byPath: Array<{
+        path: string;
+        totalIncome: number;
+        totalExpense: number;
+        count: number;
+      }>;
     };
 
     expect(data.summary).toBeTruthy();

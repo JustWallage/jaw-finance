@@ -29,20 +29,22 @@ test.beforeEach(async ({ page, context, request }, testInfo) => {
 });
 
 async function connectAndRefresh(page: Page) {
-  await page.goto("/");
+  await page.goto("/settings");
   await page.getByTestId("connect-button").click();
   await page.getByTestId("bank-option-bunq").click();
   await page.waitForURL("**/mock-enable-banking/consent**");
   await page.getByTestId("simulate-success").click();
   await page.waitForURL("**/?connected=true");
 
+  await page.goto("/settings");
   const refreshBtn = page.getByTestId("refresh-button");
   await expect(refreshBtn).toBeVisible({ timeout: 5_000 });
   await refreshBtn.click();
 
-  const table = page.getByTestId("transactions-table");
-  await expect(table).toBeVisible({ timeout: 10_000 });
-  return table;
+  await page.goto("/");
+  const feed = page.getByTestId("transactions-table");
+  await expect(feed).toBeVisible({ timeout: 10_000 });
+  return feed;
 }
 
 test.describe("Tag query - backend", () => {
@@ -51,27 +53,41 @@ test.describe("Tag query - backend", () => {
 
     // Create tags and assign to transactions
     const txRes = await request.get("/api/bank/transactions");
-    const txData = (await txRes.json()) as { transactions: Array<{ id: number }> };
+    const txData = (await txRes.json()) as {
+      transactions: Array<{ id: number }>;
+    };
     const txId = txData.transactions[0].id;
     const txId2 = txData.transactions[1].id;
 
-    const tag1Res = await request.post("/api/tags", { data: { name: "food", path: "vacation/spain/food" } });
-    const spainFoodTag = ((await tag1Res.json()) as { tag: { id: number } }).tag;
+    const tag1Res = await request.post("/api/tags", {
+      data: { name: "food", path: "vacation/spain/food" },
+    });
+    const spainFoodTag = ((await tag1Res.json()) as { tag: { id: number } })
+      .tag;
 
-    const tag2Res = await request.post("/api/tags", { data: { name: "drinks", path: "vacation/italy/drinks" } });
-    const italyDrinksTag = ((await tag2Res.json()) as { tag: { id: number } }).tag;
+    const tag2Res = await request.post("/api/tags", {
+      data: { name: "drinks", path: "vacation/italy/drinks" },
+    });
+    const italyDrinksTag = ((await tag2Res.json()) as { tag: { id: number } })
+      .tag;
 
     // Assign vacation/spain/food to first transaction
-    await request.put(`/api/transactions/${txId}/tags`, { data: { tag_id: spainFoodTag.id } });
+    await request.put(`/api/transactions/${txId}/tags`, {
+      data: { tag_id: spainFoodTag.id },
+    });
 
     // Assign vacation/italy/drinks to second transaction
-    await request.put(`/api/transactions/${txId2}/tags`, { data: { tag_id: italyDrinksTag.id } });
+    await request.put(`/api/transactions/${txId2}/tags`, {
+      data: { tag_id: italyDrinksTag.id },
+    });
 
     // GLOB "vacation/*/food" should match vacation/spain/food but not vacation/italy/drinks
     const res1 = await request.post("/api/transactions/by-tags", {
       data: { queries: [{ tagGlobs: ["vacation/*/food"] }] },
     });
-    const data1 = (await res1.json()) as { transactions: Array<{ id: number }> };
+    const data1 = (await res1.json()) as {
+      transactions: Array<{ id: number }>;
+    };
     const ids1 = data1.transactions.map((t) => t.id);
     expect(ids1).toContain(txId);
     expect(ids1).not.toContain(txId2);
@@ -80,7 +96,9 @@ test.describe("Tag query - backend", () => {
     const res2 = await request.post("/api/transactions/by-tags", {
       data: { queries: [{ tagGlobs: ["vacation/*"] }] },
     });
-    const data2 = (await res2.json()) as { transactions: Array<{ id: number }> };
+    const data2 = (await res2.json()) as {
+      transactions: Array<{ id: number }>;
+    };
     const ids2 = data2.transactions.map((t) => t.id);
     expect(ids2).toContain(txId);
     expect(ids2).toContain(txId2);
@@ -90,35 +108,44 @@ test.describe("Tag query - backend", () => {
     await connectAndRefresh(page);
 
     const txRes = await request.get("/api/bank/transactions");
-    const txData = (await txRes.json()) as { transactions: Array<{ id: number }> };
+    const txData = (await txRes.json()) as {
+      transactions: Array<{ id: number }>;
+    };
     const txId1 = txData.transactions[0].id;
     const txId2 = txData.transactions[1].id;
 
     // Create two unrelated tags
-    const tag1Res = await request.post("/api/tags", { data: { name: "groceries", path: "food/groceries" } });
+    const tag1Res = await request.post("/api/tags", {
+      data: { name: "groceries", path: "food/groceries" },
+    });
     const tag1 = ((await tag1Res.json()) as { tag: { id: number } }).tag;
 
-    const tag2Res = await request.post("/api/tags", { data: { name: "streaming", path: "entertainment/streaming" } });
+    const tag2Res = await request.post("/api/tags", {
+      data: { name: "streaming", path: "entertainment/streaming" },
+    });
     const tag2 = ((await tag2Res.json()) as { tag: { id: number } }).tag;
 
-    await request.put(`/api/transactions/${txId1}/tags`, { data: { tag_id: tag1.id } });
-    await request.put(`/api/transactions/${txId2}/tags`, { data: { tag_id: tag2.id } });
+    await request.put(`/api/transactions/${txId1}/tags`, {
+      data: { tag_id: tag1.id },
+    });
+    await request.put(`/api/transactions/${txId2}/tags`, {
+      data: { tag_id: tag2.id },
+    });
 
     // Single query for food/* — only txId1
     const single = await request.post("/api/transactions/by-tags", {
       data: { queries: [{ tagGlobs: ["food/*"] }] },
     });
-    const singleData = (await single.json()) as { transactions: Array<{ id: number }> };
+    const singleData = (await single.json()) as {
+      transactions: Array<{ id: number }>;
+    };
     expect(singleData.transactions.map((t) => t.id)).toContain(txId1);
     expect(singleData.transactions.map((t) => t.id)).not.toContain(txId2);
 
     // OR across two queries — both transactions
     const or = await request.post("/api/transactions/by-tags", {
       data: {
-        queries: [
-          { tagGlobs: ["food/*"] },
-          { tagGlobs: ["entertainment/*"] },
-        ],
+        queries: [{ tagGlobs: ["food/*"] }, { tagGlobs: ["entertainment/*"] }],
       },
     });
     const orData = (await or.json()) as { transactions: Array<{ id: number }> };
@@ -127,7 +154,10 @@ test.describe("Tag query - backend", () => {
     expect(orIds).toContain(txId2);
   });
 
-  test("date range filtering with startDate and endDate", async ({ page, request }) => {
+  test("date range filtering with startDate and endDate", async ({
+    page,
+    request,
+  }) => {
     await connectAndRefresh(page);
 
     const txRes = await request.get("/api/bank/transactions");
@@ -137,9 +167,13 @@ test.describe("Tag query - backend", () => {
     const dateFilterTagRes = await request.post("/api/tags", {
       data: { name: "date-filter", path: "tests/date-filter" },
     });
-    const dateFilterTag = ((await dateFilterTagRes.json()) as { tag: { id: number } }).tag;
+    const dateFilterTag = (
+      (await dateFilterTagRes.json()) as { tag: { id: number } }
+    ).tag;
     for (const tx of txData.transactions) {
-      await request.put(`/api/transactions/${tx.id}/tags`, { data: { tag_id: dateFilterTag.id } });
+      await request.put(`/api/transactions/${tx.id}/tags`, {
+        data: { tag_id: dateFilterTag.id },
+      });
     }
 
     const sortedByDate = [...txData.transactions]
@@ -152,14 +186,18 @@ test.describe("Tag query - backend", () => {
     // Query one assigned tag with date range narrowed to only the newest date
     const res = await request.post("/api/transactions/by-tags", {
       data: {
-        queries: [{
-          tagGlobs: ["tests/date-filter"],
-          startDate: newest.booking_date!,
-          endDate: newest.booking_date!,
-        }],
+        queries: [
+          {
+            tagGlobs: ["tests/date-filter"],
+            startDate: newest.booking_date!,
+            endDate: newest.booking_date!,
+          },
+        ],
       },
     });
-    const data = (await res.json()) as { transactions: Array<{ id: number; booking_date: string | null }> };
+    const data = (await res.json()) as {
+      transactions: Array<{ id: number; booking_date: string | null }>;
+    };
 
     // Only transactions on that date should appear
     for (const tx of data.transactions) {
@@ -183,10 +221,16 @@ test.describe("Tag query - backend", () => {
     const incomeOnlyRes = await request.post("/api/tags", {
       data: { name: "income-only", path: "tests/income-only" },
     });
-    const incomeOnlyTag = ((await incomeOnlyRes.json()) as { tag: { id: number } }).tag;
-    const creditTransactions = txData.transactions.filter((tx) => tx.credit_debit === "CRDT");
+    const incomeOnlyTag = (
+      (await incomeOnlyRes.json()) as { tag: { id: number } }
+    ).tag;
+    const creditTransactions = txData.transactions.filter(
+      (tx) => tx.credit_debit === "CRDT",
+    );
     for (const tx of creditTransactions) {
-      await request.put(`/api/transactions/${tx.id}/tags`, { data: { tag_id: incomeOnlyTag.id } });
+      await request.put(`/api/transactions/${tx.id}/tags`, {
+        data: { tag_id: incomeOnlyTag.id },
+      });
     }
 
     const res = await request.post("/api/transactions/by-tags", {
@@ -206,17 +250,26 @@ test.describe("Tag query - backend", () => {
     expect(data.totalExpense).toBe(0);
   });
 
-  test("backward compat: legacy paths field still works", async ({ page, request }) => {
+  test("backward compat: legacy paths field still works", async ({
+    page,
+    request,
+  }) => {
     await connectAndRefresh(page);
 
-    const tagRes = await request.post("/api/tags", { data: { name: "rent", path: "housing/rent" } });
+    const tagRes = await request.post("/api/tags", {
+      data: { name: "rent", path: "housing/rent" },
+    });
     const tag = ((await tagRes.json()) as { tag: { id: number } }).tag;
 
     const txRes = await request.get("/api/bank/transactions");
-    const txData = (await txRes.json()) as { transactions: Array<{ id: number }> };
+    const txData = (await txRes.json()) as {
+      transactions: Array<{ id: number }>;
+    };
     const txId = txData.transactions[0].id;
 
-    await request.put(`/api/transactions/${txId}/tags`, { data: { tag_id: tag.id } });
+    await request.put(`/api/transactions/${txId}/tags`, {
+      data: { tag_id: tag.id },
+    });
 
     // Use old-style paths
     const res = await request.post("/api/transactions/by-tags", {
@@ -228,26 +281,33 @@ test.describe("Tag query - backend", () => {
 });
 
 test.describe("Tag query - frontend", () => {
-  test("search by glob pattern opens results modal with totals", async ({ page }) => {
+  test("search by glob pattern opens results modal with totals", async ({
+    page,
+  }) => {
     await connectAndRefresh(page);
 
-    // Navigate to tags page
-    await page.getByTestId("nav-tags").click();
-    await expect(page).toHaveURL(/\/tags$/);
+    // Navigate to trends page
+    await page.getByTestId("nav-trends").click();
+    await expect(page).toHaveURL(/\/trends$/);
 
     // The query search section should be visible
     const section = page.getByTestId("query-search-section");
     await expect(section).toBeVisible();
 
     const txRes = await page.request.get("/api/bank/transactions");
-    const txData = (await txRes.json()) as { transactions: Array<{ id: number }> };
+    const txData = (await txRes.json()) as {
+      transactions: Array<{ id: number }>;
+    };
     const tagRes = await page.request.post("/api/tags", {
       data: { name: "frontend-query", path: "tests/frontend-query" },
     });
     const tag = ((await tagRes.json()) as { tag: { id: number } }).tag;
-    await page.request.put(`/api/transactions/${txData.transactions[0].id}/tags`, {
-      data: { tag_id: tag.id },
-    });
+    await page.request.put(
+      `/api/transactions/${txData.transactions[0].id}/tags`,
+      {
+        data: { tag_id: tag.id },
+      },
+    );
 
     await section.getByTestId("query-glob-input").fill("tests/frontend-*");
     await section.getByTestId("query-search-button").click();
@@ -265,7 +325,10 @@ test.describe("Tag query - frontend", () => {
     await expect(txItems.first()).toBeVisible();
   });
 
-  test("search with date filters narrows results", async ({ page, request }) => {
+  test("search with date filters narrows results", async ({
+    page,
+    request,
+  }) => {
     await connectAndRefresh(page);
 
     // Get a known transaction date to use as filter
@@ -276,9 +339,12 @@ test.describe("Tag query - frontend", () => {
     const queryTagRes = await request.post("/api/tags", {
       data: { name: "frontend-date", path: "tests/frontend-date" },
     });
-    const queryTag = ((await queryTagRes.json()) as { tag: { id: number } }).tag;
+    const queryTag = ((await queryTagRes.json()) as { tag: { id: number } })
+      .tag;
     for (const tx of txData.transactions) {
-      await request.put(`/api/transactions/${tx.id}/tags`, { data: { tag_id: queryTag.id } });
+      await request.put(`/api/transactions/${tx.id}/tags`, {
+        data: { tag_id: queryTag.id },
+      });
     }
     const dates = txData.transactions
       .map((t) => t.booking_date)
@@ -286,8 +352,8 @@ test.describe("Tag query - frontend", () => {
     dates.sort();
     const latestDate = dates[dates.length - 1];
 
-    await page.getByTestId("nav-tags").click();
-    await expect(page).toHaveURL(/\/tags$/);
+    await page.getByTestId("nav-trends").click();
+    await expect(page).toHaveURL(/\/trends$/);
 
     const section = page.getByTestId("query-search-section");
     await section.getByTestId("query-glob-input").fill("tests/frontend-date");

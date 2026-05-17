@@ -1,85 +1,40 @@
-import { useState, useCallback, useRef, useEffect } from "react";
-import { Loader2, RefreshCw, Link as LinkIcon, AlertTriangle, History, User, TrendingUp, TrendingDown, Eye, EyeOff, Sparkles, MessageCircle, ChevronDown, ChevronUp, Send, BotMessageSquare, Pencil } from "lucide-react";
+import { useState, useCallback, useEffect } from "react";
+import { useNavigate, useOutletContext } from "react-router-dom";
+import { Loader2, Send, Sparkles, LinkIcon } from "lucide-react";
+import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
-import { useBankConnection } from "../hooks/useBankConnection";
+import { useBankConnectionContext } from "../components/BankConnectionProvider";
 import { useIncomeAnalytics } from "../hooks/useIncomeAnalytics";
-import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useTags } from "../hooks/useTags";
 import { TagSelector } from "../components/TagSelector";
+import { IncomeExpenseChart } from "../components/IncomeExpenseChart";
+import { TransactionFeed } from "../components/TransactionFeed";
 import { authHeaders } from "../lib/auth-headers";
-import type { DBTag, DBTransaction } from "../../db/types";
+import type { DBTag } from "../../db/types";
 
 export default function HomePage() {
+  const navigate = useNavigate();
+  const { hideIncome } = useOutletContext<{ hideIncome: boolean }>();
+
   const {
     connections,
     transactions,
     loading,
-    error,
     activeConnection,
-    expiringSoon,
-    importProgress,
-    userEmail,
     selectedAccountUid,
-    setSelectedAccountUid,
-    handleConnect,
-    handleRefresh,
-    handleImportHistory,
-    fetchStatus,
-  } = useBankConnection();
+  } = useBankConnectionContext();
 
-  const accountLabel = (uid: string) => {
-    if (uid === "all") return "All Accounts";
-    const c = connections.find((conn) => conn.account_uid === uid);
-    return c?.nickname ?? c?.iban ?? uid;
-  };
-
-  const selectedConnection = connections.find(
-    (c) => c.account_uid === selectedAccountUid,
-  );
-
-  const { currentMonthIncome, currentMonthExpense, pastMonths, refresh: refreshAnalytics } =
+  const { currentMonthIncome, currentMonthExpense, pastMonths } =
     useIncomeAnalytics(selectedAccountUid);
-
-  const [hideIncome, setHideIncome] = useLocalStorage("jaw-finance-hide-income", false);
 
   const { tags, fetchTags, createTag, deleteTag, getTagCount, getTransactionTags, assignTag, removeTag } = useTags();
   const [selectedTxId, setSelectedTxId] = useState<number | null>(null);
@@ -101,147 +56,7 @@ export default function HomePage() {
     fetchTags();
   }, [selectedTxId, getTransactionTags, fetchTags]);
 
-  const formatPeriod = (period: string) => {
-    const [year, month] = period.split("-");
-    const date = new Date(Number(year), Number(month) - 1);
-    return date.toLocaleString("default", { month: "long", year: "numeric" });
-  };
-
-  const displayedTransactions = transactions;
-
   const [evaluating, setEvaluating] = useState(false);
-  const [batchEvaluating, setBatchEvaluating] = useState(false);
-  const [pendingCount, setPendingCount] = useState<number | null>(null);
-
-  const [chatQuestion, setChatQuestion] = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
-  const [chatResult, setChatResult] = useState<{
-    summary: string;
-    transactions: DBTransaction[];
-    totalIncome: number;
-    totalExpense: number;
-    byPath: { path: string; totalIncome: number; totalExpense: number; count: number }[];
-  } | null>(null);
-  const [chatExpanded, setChatExpanded] = useState(false);
-  const chatInputRef = useRef<HTMLInputElement>(null);
-  const [thinkingDots, setThinkingDots] = useState(1);
-
-  // Bank selection
-  const [bankDialogOpen, setBankDialogOpen] = useState(false);
-  const [bankList, setBankList] = useState<{ name: string; country: string; logo: string }[]>([]);
-  const [bankSearch, setBankSearch] = useState("");
-  const [bankLoading, setBankLoading] = useState(false);
-
-  // Nickname editing
-  const [nicknameDialogOpen, setNicknameDialogOpen] = useState(false);
-  const [nicknameDraft, setNicknameDraft] = useState<Record<string, string>>({});
-  const [nicknameSaving, setNicknameSaving] = useState(false);
-  const [nicknameSaveError, setNicknameSaveError] = useState<string | null>(null);
-
-  function openNicknameDialog() {
-    const draft: Record<string, string> = {};
-    for (const c of connections) draft[c.account_uid] = c.nickname ?? "";
-    setNicknameDraft(draft);
-    setNicknameSaveError(null);
-    setNicknameDialogOpen(true);
-  }
-
-  async function saveNicknames() {
-    setNicknameSaving(true);
-    setNicknameSaveError(null);
-    try {
-      const res = await fetch("/api/bank/nickname", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ nicknames: nicknameDraft }),
-      });
-      if (!res.ok) {
-        const data = (await res.json()) as { error?: string };
-        setNicknameSaveError(data.error ?? "Failed to save");
-        return;
-      }
-      try { await fetchStatus(); } catch (e) { console.warn("fetchStatus failed:", e); }
-      setNicknameDialogOpen(false);
-    } catch {
-      setNicknameSaveError("Network error. Please try again.");
-    } finally {
-      setNicknameSaving(false);
-    }
-  }
-
-
-  async function openBankDialog() {
-    setBankDialogOpen(true);
-    setBankSearch("");
-    if (bankList.length > 0) return;
-    setBankLoading(true);
-    try {
-      const res = await fetch("/api/bank/aspsps", { headers: authHeaders() });
-      if (res.ok) {
-        const data = (await res.json()) as { aspsps: { name: string; country: string; logo: string }[] };
-        setBankList(data.aspsps.sort((a, b) => a.name.localeCompare(b.name)));
-      }
-    } finally {
-      setBankLoading(false);
-    }
-  }
-
-  function selectBank(aspsp: { name: string; country: string }) {
-    setBankDialogOpen(false);
-    handleConnect(aspsp);
-  }
-
-  const filteredBanks = bankList.filter(
-    (b) =>
-      b.name.toLowerCase().includes(bankSearch.toLowerCase()) ||
-      b.country.toLowerCase().includes(bankSearch.toLowerCase()),
-  );
-
-  useEffect(() => {
-    if (!chatLoading) return;
-    setThinkingDots(1);
-    const interval = setInterval(() => setThinkingDots((d) => (d % 3) + 1), 500);
-    return () => clearInterval(interval);
-  }, [chatLoading]);
-
-  async function handleChatSubmit(e?: React.FormEvent) {
-    e?.preventDefault();
-    if (!chatQuestion.trim() || chatLoading) return;
-    setChatLoading(true);
-    setChatResult(null);
-    setChatExpanded(false);
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeaders(),
-          "X-Test-Mock-AI": import.meta.env.VITE_MOCK_AI === "1" ? "1" : "",
-        },
-        body: JSON.stringify({ question: chatQuestion.trim() }),
-      });
-      const data = (await res.json()) as {
-        error?: string;
-        summary: string;
-        transactions: DBTransaction[];
-        totalIncome: number;
-        totalExpense: number;
-        byPath?: { path: string; totalIncome: number; totalExpense: number; count: number }[];
-      };
-      if (data.error) throw new Error(data.error);
-      setChatResult({ ...data, byPath: data.byPath ?? [] });
-    } catch {
-      setChatResult({
-        summary: "Something went wrong. Please try again.",
-        transactions: [],
-        totalIncome: 0,
-        totalExpense: 0,
-        byPath: [],
-      });
-    } finally {
-      setChatLoading(false);
-    }
-  }
 
   async function handleEvaluate() {
     if (!selectedTxId) return;
@@ -257,506 +72,127 @@ export default function HomePage() {
     }
   }
 
-  async function fetchPendingCount() {
-    try {
-      const res = await fetch("/api/transactions/pending-count", { headers: authHeaders() });
-      if (res.ok) {
-        const data = (await res.json()) as { count: number };
-        setPendingCount(data.count);
-      }
-    } catch {
-      /* non-critical */
+  // Chat input that navigates to chat page
+  const [chatQuestion, setChatQuestion] = useState("");
+
+  function handleChatSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!chatQuestion.trim()) return;
+    navigate(`/chat?q=${encodeURIComponent(chatQuestion.trim())}`);
+  }
+
+  // Build chart data
+  const chartData = pastMonths.length > 0 ? [...pastMonths].reverse() : [];
+  if (currentMonthIncome !== null) {
+    const now = new Date();
+    const currentPeriod = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+    if (!chartData.some((d) => d.period === currentPeriod)) {
+      chartData.push({ period: currentPeriod, income: currentMonthIncome, expense: currentMonthExpense ?? 0 });
     }
   }
 
-  async function handleBatchEvaluate() {
-    setBatchEvaluating(true);
-    try {
-      await fetch("/api/transactions/evaluate-batch", {
-        method: "POST",
-        headers: {
-          ...authHeaders(),
-          ...(import.meta.env.VITE_MOCK_AI === "1" ? { "X-Test-Mock-AI": "1" } : {}),
-        },
-      });
-      await fetchPendingCount();
-      fetchTags();
-    } finally {
-      setBatchEvaluating(false);
-    }
-  }
-
-  // Fetch pending count when transactions load.
-  useEffect(() => {
-    if (transactions.length > 0) fetchPendingCount();
-  }, [transactions.length]);
+  const hasData = connections.length > 0 && activeConnection;
 
   return (
-    <>
-      <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tight">JAW Finance</h1>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setHideIncome(!hideIncome)}
-              data-testid="toggle-income"
-              title={hideIncome ? "Show income" : "Hide income"}
-            >
-              {hideIncome ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </Button>
-            {activeConnection && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={async () => {
-                  await handleRefresh();
-                  refreshAnalytics();
-                }}
-                disabled={loading !== null || importProgress !== null}
-                data-testid="refresh-button"
-              >
-                {loading === "refresh" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
-              </Button>
-            )}
-            {connections.length > 0 && (
-              <Select
-                value={selectedAccountUid}
-                onValueChange={(value) => {
-                  if (value === "edit-names") {
-                    openNicknameDialog();
-                  } else if (value) {
-                    setSelectedAccountUid(value);
-                  }
-                }}
-              >
-                <SelectTrigger data-testid="account-switcher">
-                  <SelectValue>
-                    {accountLabel(selectedAccountUid)}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" data-testid="account-option-all">
-                    All Accounts
-                  </SelectItem>
-                  {connections.map((c) => (
-                    <SelectItem
-                      key={c.account_uid}
-                      value={c.account_uid}
-                      data-testid={`account-option-${c.account_uid}`}
-                    >
-                      {c.nickname ?? c.iban ?? c.account_uid}
-                    </SelectItem>
-                  ))}
-                  <SelectSeparator />
-                  <SelectItem value="edit-names" data-testid="account-edit-names" className="text-muted-foreground">
-                    <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-                    Edit account names
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-            <Dialog>
-              <DialogTrigger
-                render={
-                  <button
-                    className="inline-flex items-center gap-1.5 rounded-md bg-muted px-3 py-1 text-sm text-muted-foreground hover:bg-muted/80 cursor-pointer"
-                    data-testid="user-menu-trigger"
-                  >
-                    <User className="h-3.5 w-3.5" />
-                    {userEmail ?? "Account"}
-                  </button>
-                }
-              />
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Bank Connection</DialogTitle>
-                  <DialogDescription>
-                    Manage your bank connections and import history.
-                  </DialogDescription>
-                </DialogHeader>
+    <motion.div
+      className="space-y-6"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
+      {/* Chat Hero */}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }}>
+        <form onSubmit={handleChatSubmit} data-testid="chat-form" className="flex gap-2">
+          <Input
+            placeholder={hasData ? "Ask about your finances..." : "Connect a bank to get started"}
+            value={chatQuestion}
+            onChange={(e) => setChatQuestion(e.target.value)}
+            disabled={!hasData}
+            data-testid="chat-input"
+            className="flex-1 h-11"
+          />
+          <Button type="submit" disabled={!hasData || !chatQuestion.trim()} data-testid="chat-submit" className="h-11">
+            <Send className="h-4 w-4" />
+          </Button>
+        </form>
+      </motion.div>
 
-                {selectedConnection && (
-                  <div className="text-sm text-muted-foreground space-y-1">
-                    <p className="font-medium text-foreground">
-                      Connected to {selectedConnection.aspsp_name}
-                      <Badge variant="secondary" className="ml-2">{selectedConnection.aspsp_country}</Badge>
-                    </p>
-                    {selectedConnection.iban && <p>IBAN: {selectedConnection.iban}</p>}
-                    <p>
-                      Valid until:{" "}
-                      {new Date(selectedConnection.valid_until).toLocaleDateString()}
-                    </p>
-                  </div>
-                )}
-
-                <div className="flex flex-col gap-2">
-                  {!activeConnection ? (
-                    <Button
-                      onClick={openBankDialog}
-                      disabled={loading !== null}
-                      data-testid="connect-button"
-                    >
-                      {loading === "connect" ? (
-                        <>
-                          <Loader2 className="animate-spin" />
-                          Connecting…
-                        </>
-                      ) : (
-                        <>
-                          <LinkIcon className="h-4 w-4" />
-                          Connect Bank
-                        </>
-                      )}
-                    </Button>
-                  ) : (
-                    <>
-                      <Button
-                        variant="outline"
-                        onClick={openBankDialog}
-                        disabled={loading !== null || importProgress !== null}
-                        data-testid="reconnect-button"
-                      >
-                        Reconnect
-                      </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          disabled={loading !== null || importProgress !== null}
-                          data-testid="import-history-button"
-                          render={
-                            <Button variant="outline">
-                              <History className="h-4 w-4" />
-                              Import History
-                            </Button>
-                          }
-                        />
-                        <DropdownMenuContent>
-                          <DropdownMenuItem
-                            data-testid="import-3m"
-                            onClick={() => handleImportHistory(3)}
-                          >
-                            3 Months
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            data-testid="import-1y"
-                            onClick={() => handleImportHistory(12)}
-                          >
-                            1 Year
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            data-testid="import-5y"
-                            onClick={() => handleImportHistory(60)}
-                          >
-                            5 Years
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </>
-                  )}
+      {/* Empty state — feature preview */}
+      {!hasData && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <div className="relative">
+            {/* Blurred mock content */}
+            <div className="pointer-events-none select-none blur-sm opacity-50 space-y-4">
+              <div className="flex items-baseline gap-6">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Income this month</p>
+                  <p className="text-2xl font-bold text-income">+3,245.00 EUR</p>
                 </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
-
-        {activeConnection && (
-          <form onSubmit={handleChatSubmit} data-testid="chat-form" className="flex gap-2">
-            <Input
-              ref={chatInputRef}
-              placeholder="Ask about your finances..."
-              value={chatQuestion}
-              onChange={(e) => setChatQuestion(e.target.value)}
-              disabled={chatLoading}
-              data-testid="chat-input"
-              className="flex-1"
-            />
-            <Button type="submit" disabled={chatLoading || !chatQuestion.trim()} data-testid="chat-submit">
-              {chatLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </Button>
-          </form>
-        )}
-
-        {chatLoading && (
-          <Card data-testid="chat-loading">
-            <CardContent className="flex items-center gap-3 py-6">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Thinking{".".repeat(thinkingDots)}</span>
-            </CardContent>
-          </Card>
-        )}
-
-        {chatResult && (
-          <Card data-testid="chat-result-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MessageCircle className="h-5 w-5" />
-                Answer
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <p data-testid="chat-summary" className="text-sm">{chatResult.summary}</p>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <span data-testid="chat-total-income" className="text-green-500">
-                  +{chatResult.totalIncome.toFixed(2)} EUR
-                </span>
-                <span data-testid="chat-total-expense" className="text-red-500">
-                  -{chatResult.totalExpense.toFixed(2)} EUR
-                </span>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Expenses this month</p>
+                  <p className="text-2xl font-bold text-expense">-1,876.50 EUR</p>
+                </div>
               </div>
-              {chatResult.byPath.length > 0 && (
-                <div data-testid="chat-by-path" className="space-y-1">
-                  {chatResult.byPath.map((p) => (
-                    <div key={p.path} className="flex items-center justify-between text-xs" data-testid={`chat-path-${p.path}`}>
-                      <span className="text-muted-foreground font-mono">{p.path}</span>
-                      <span className="flex gap-3 shrink-0">
-                        {p.totalIncome > 0 && (
-                          <span className="text-green-500">+{p.totalIncome.toFixed(2)}</span>
-                        )}
-                        {p.totalExpense > 0 && (
-                          <span className="text-red-500">-{p.totalExpense.toFixed(2)}</span>
-                        )}
-                        <span className="text-muted-foreground">{p.count} tx</span>
-                      </span>
-                    </div>
-                  ))}
+              <div className="h-40 rounded-lg bg-muted" />
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
+                  <div className="flex-1 space-y-1">
+                    <div className="h-3.5 w-32 rounded bg-muted" />
+                    <div className="h-2.5 w-48 rounded bg-muted" />
+                  </div>
+                  <div className="h-3.5 w-16 rounded bg-muted" />
                 </div>
-              )}
-              {chatResult.transactions.length > 0 ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setChatExpanded(!chatExpanded)}
-                  data-testid="chat-toggle-transactions"
-                >
-                  {chatExpanded ? <ChevronUp className="h-4 w-4 mr-1" /> : <ChevronDown className="h-4 w-4 mr-1" />}
-                  {chatExpanded ? "Hide" : "View all"} {chatResult.transactions.length} transactions
-                </Button>
-              ) : (
-                <p className="text-xs text-muted-foreground">No transactions matched.</p>
-              )}
-              {chatExpanded && (
-                <Table data-testid="chat-transactions-table">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Counterparty</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {chatResult.transactions.map((tx) => (
-                      <TableRow key={tx.id} data-testid={`chat-tx-${tx.id}`}>
-                        <TableCell className="whitespace-nowrap">{tx.booking_date ?? "—"}</TableCell>
-                        <TableCell>{tx.counterparty_name ?? "—"}</TableCell>
-                        <TableCell className={`text-right whitespace-nowrap ${tx.credit_debit === "CRDT" ? "text-green-500" : "text-red-500"}`}>
-                          {tx.credit_debit === "DBIT" ? "-" : "+"}{tx.amount} {tx.currency}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
+              ))}
+            </div>
+            {/* CTA overlay */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Card className="shadow-lg">
+                <CardContent className="flex flex-col items-center gap-3 py-6 px-8">
+                  <LinkIcon className="h-8 w-8 text-primary" />
+                  <p className="text-sm font-medium text-center">Connect your bank account to see your finances</p>
+                  <Button onClick={() => navigate("/settings")} data-testid="connect-button">
+                    {loading === "connect" ? (
+                      <><Loader2 className="animate-spin" /> Connecting…</>
+                    ) : (
+                      <><LinkIcon className="h-4 w-4" /> Connect Bank</>
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Chart */}
+      {hasData && currentMonthIncome !== null && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <Card className="bg-zinc-900 text-zinc-100 border-zinc-700">
+            <CardContent className="pt-6">
+              <IncomeExpenseChart
+                data={chartData}
+                currentIncome={currentMonthIncome}
+                currentExpense={currentMonthExpense ?? 0}
+                hideIncome={hideIncome}
+                compact
+              />
             </CardContent>
           </Card>
-        )}
+        </motion.div>
+      )}
 
-        {error && (
-          <Alert variant="destructive" data-testid="error-alert">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+      {/* Transaction Feed */}
+      {hasData && transactions.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+          <TransactionFeed
+            transactions={transactions}
+            onSelect={openTransaction}
+            hideIncome={hideIncome}
+          />
+        </motion.div>
+      )}
 
-        {expiringSoon && activeConnection && (
-          <Alert data-testid="expiry-warning">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Connection expiring soon</AlertTitle>
-            <AlertDescription>
-              Your bank connection expires on{" "}
-              {new Date(activeConnection.valid_until).toLocaleDateString()}.
-              Please reconnect.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {importProgress && (
-          <div
-            className="flex items-center justify-center gap-2 text-sm text-muted-foreground"
-            data-testid="import-progress"
-          >
-            <Loader2 className="h-4 w-4 animate-spin" />
-            {importProgress}
-          </div>
-        )}
-
-        {!activeConnection && (
-          <div className="flex justify-center">
-            <Button
-              onClick={openBankDialog}
-              disabled={loading !== null}
-              size="lg"
-              data-testid="connect-button"
-            >
-              {loading === "connect" ? (
-                <>
-                  <Loader2 className="animate-spin" />
-                  Connecting…
-                </>
-              ) : (
-                <>
-                  <LinkIcon className="h-4 w-4" />
-                  Connect Bank
-                </>
-              )}
-            </Button>
-          </div>
-        )}
-
-        {currentMonthIncome !== null && (
-          <div className="grid grid-cols-2 gap-4">
-            <Card data-testid="income-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5" />
-                  Income
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-4">
-                  <p className="text-sm text-muted-foreground">This month</p>
-                  <p className={`text-3xl font-bold text-green-500 ${hideIncome ? "blur-md select-none" : ""}`} data-testid="current-month-income">
-                    +{currentMonthIncome.toFixed(2)} EUR
-                  </p>
-                </div>
-                {pastMonths.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">Past months</p>
-                    {pastMonths.map((m) => (
-                      <div
-                        key={m.period}
-                        className="flex items-center justify-between text-sm"
-                        data-testid={`income-month-${m.period}`}
-                      >
-                        <span className="text-muted-foreground">{formatPeriod(m.period)}</span>
-                        <span className={`font-medium text-green-500 ${hideIncome ? "blur-md select-none" : ""}`}>
-                          {m.income.toFixed(2)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card data-testid="expense-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingDown className="h-5 w-5" />
-                  Expenses
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="mb-4">
-                  <p className="text-sm text-muted-foreground">This month</p>
-                  <p className="text-3xl font-bold text-red-500" data-testid="current-month-expense">
-                    -{(currentMonthExpense ?? 0).toFixed(2)} EUR
-                  </p>
-                </div>
-                {pastMonths.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">Past months</p>
-                    {pastMonths.map((m) => (
-                      <div
-                        key={m.period}
-                        className="flex items-center justify-between text-sm"
-                        data-testid={`expense-month-${m.period}`}
-                      >
-                        <span className="text-muted-foreground">{formatPeriod(m.period)}</span>
-                        <span className="font-medium text-red-500">
-                          {m.expense.toFixed(2)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {displayedTransactions.length > 0 && (
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0">
-              <CardTitle>Transactions</CardTitle>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleBatchEvaluate}
-                disabled={batchEvaluating}
-                data-testid="batch-evaluate-button"
-              >
-                {batchEvaluating ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <BotMessageSquare className="h-3 w-3" />
-                )}
-                Auto-Tag Pending{pendingCount !== null ? ` (${pendingCount})` : " (Max 50)"}
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <Table data-testid="transactions-table">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Counterparty</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {displayedTransactions.map((tx) => (
-                    <TableRow
-                      key={tx.id}
-                      className="cursor-pointer"
-                      onClick={() => openTransaction(tx.id)}
-                      data-testid={`tx-row-${tx.id}`}
-                    >
-                      <TableCell className="whitespace-nowrap">
-                        {tx.booking_date ?? "—"}
-                      </TableCell>
-                      <TableCell>{tx.counterparty_name ?? "—"}</TableCell>
-                      <TableCell className="max-w-50 truncate">
-                        {tx.remittance_info ?? "—"}
-                      </TableCell>
-                      <TableCell
-                        className={`text-right whitespace-nowrap ${
-                          tx.credit_debit === "CRDT"
-                            ? "text-green-500"
-                            : "text-red-500"
-                        } ${hideIncome && tx.credit_debit === "CRDT" ? "blur-md select-none" : ""}`}
-                      >
-                        {tx.credit_debit === "DBIT" ? "-" : "+"}
-                        {tx.amount} {tx.currency}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={tx.status === "BOOK" ? "default" : "secondary"}>
-                          {tx.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        )}
-
+      {/* Transaction Detail Dialog */}
       <Dialog open={selectedTx !== null} onOpenChange={(open) => { if (!open) setSelectedTxId(null); }}>
         <DialogContent data-testid="transaction-dialog">
           <DialogHeader>
@@ -778,11 +214,7 @@ export default function HomePage() {
                 disabled={evaluating}
                 data-testid="ai-evaluate-button"
               >
-                {evaluating ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Sparkles className="h-3 w-3" />
-                )}
+                {evaluating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
                 AI Evaluate
               </Button>
             </div>
@@ -802,95 +234,6 @@ export default function HomePage() {
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Bank Selection Dialog */}
-      <Dialog open={bankDialogOpen} onOpenChange={setBankDialogOpen}>
-        <DialogContent className="max-h-[80vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Select your bank</DialogTitle>
-            <DialogDescription>
-              Search and select the bank you want to connect.
-            </DialogDescription>
-          </DialogHeader>
-          <Input
-            placeholder="Search banks…"
-            value={bankSearch}
-            onChange={(e) => setBankSearch(e.target.value)}
-            autoFocus
-            data-testid="bank-search-input"
-          />
-          <div className="overflow-y-auto flex-1 min-h-0 max-h-[50vh]">
-            {bankLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin" />
-              </div>
-            ) : filteredBanks.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                No banks found.
-              </p>
-            ) : (
-              <div className="space-y-1">
-                {filteredBanks.map((bank) => (
-                  <button
-                    key={`${bank.country}-${bank.name}`}
-                    className="w-full flex items-center gap-3 p-2 rounded hover:bg-accent text-left"
-                    onClick={() => selectBank({ name: bank.name, country: bank.country })}
-                    data-testid={`bank-option-${bank.name}`}
-                  >
-                    <img
-                      src={`${bank.logo}-/resize/32x/`}
-                      alt=""
-                      className="w-6 h-6 rounded"
-                      loading="lazy"
-                    />
-                    <span className="flex-1 text-sm font-medium">{bank.name}</span>
-                    <Badge variant="outline" className="text-xs">{bank.country}</Badge>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Account Nickname Dialog */}
-      <Dialog open={nicknameDialogOpen} onOpenChange={setNicknameDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit account names</DialogTitle>
-            <DialogDescription>
-              Set a nickname for each account. Leave blank to use the IBAN or account ID.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            {connections.map((c) => (
-              <div key={c.account_uid} className="space-y-1">
-                <p className="text-xs text-muted-foreground">{c.iban ?? c.account_uid}</p>
-                <Input
-                  placeholder={c.iban ?? c.account_uid}
-                  value={nicknameDraft[c.account_uid] ?? ""}
-                  onChange={(e) =>
-                    setNicknameDraft((prev) => ({ ...prev, [c.account_uid]: e.target.value }))
-                  }
-                  data-testid={`nickname-input-${c.account_uid}`}
-                />
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-end gap-2">
-            {nicknameSaveError && (
-              <p className="flex-1 text-sm text-destructive">{nicknameSaveError}</p>
-            )}
-            <Button variant="outline" onClick={() => setNicknameDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={saveNicknames} disabled={nicknameSaving} data-testid="save-nicknames-button">
-              {nicknameSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Save
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+    </motion.div>
   );
 }

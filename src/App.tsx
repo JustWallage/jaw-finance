@@ -1,8 +1,11 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Layout } from "./components/Layout";
 import { ConsentGate } from "./components/ConsentGate";
+import { BankConnectionProvider } from "./components/BankConnectionProvider";
 import HomePage from "./pages/HomePage";
-import TagsPage from "./pages/TagsPage";
+import ChatPage from "./pages/ChatPage";
+import TrendsPage from "./pages/TrendsPage";
+import SettingsPage from "./pages/SettingsPage";
 import TermsPage from "./pages/TermsPage";
 import PrivacyPage from "./pages/PrivacyPage";
 
@@ -15,12 +18,16 @@ export default function App() {
         <Route
           element={
             <ConsentGate>
-              <Layout />
+              <BankConnectionProvider>
+                <Layout />
+              </BankConnectionProvider>
             </ConsentGate>
           }
         >
           <Route index element={<HomePage />} />
-          <Route path="tags" element={<TagsPage />} />
+          <Route path="chat" element={<ChatPage />} />
+          <Route path="trends" element={<TrendsPage />} />
+          <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

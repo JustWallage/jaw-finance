@@ -32,24 +32,26 @@ test.beforeEach(async ({ page, context, request }, testInfo) => {
   }, email);
   void page;
   await request.post("/mock-enable-banking/reset");
-    await request.post("/api/consent", { headers: { [userEmailHeader]: email } });
+  await request.post("/api/consent", { headers: { [userEmailHeader]: email } });
 });
 
 async function connectAndRefresh(page: Page) {
-  await page.goto("/");
+  await page.goto("/settings");
   await page.getByTestId("connect-button").click();
   await page.getByTestId("bank-option-bunq").click();
   await page.waitForURL("**/mock-enable-banking/consent**");
   await page.getByTestId("simulate-success").click();
   await page.waitForURL("**/?connected=true");
 
+  await page.goto("/settings");
   const refreshBtn = page.getByTestId("refresh-button");
   await expect(refreshBtn).toBeVisible({ timeout: 5_000 });
   await refreshBtn.click();
 
-  const table = page.getByTestId("transactions-table");
-  await expect(table).toBeVisible({ timeout: 10_000 });
-  return table;
+  await page.goto("/");
+  const feed = page.getByTestId("transactions-table");
+  await expect(feed).toBeVisible({ timeout: 10_000 });
+  return feed;
 }
 
 test.describe("AI auto-tagging", () => {
@@ -60,7 +62,7 @@ test.describe("AI auto-tagging", () => {
     const table = await connectAndRefresh(page);
 
     // Open first transaction modal; capture its id.
-    const firstRow = table.locator("tbody tr").first();
+    const firstRow = table.locator("[data-testid^='tx-row-']").first();
     const testId = await firstRow.getAttribute("data-testid");
     const txId = Number(testId?.replace("tx-row-", ""));
     expect(txId).toBeGreaterThan(0);
@@ -94,7 +96,9 @@ test.describe("AI auto-tagging", () => {
     expect(leafTag?.status).toBe("unconfirmed");
     expect(leafTag?.source).toBe("llm");
     // Leaf carries the LLM's root reasoning string.
-    expect(leafTag?.reasoning).toBe("Deterministic mock reasoning for E2E tests.");
+    expect(leafTag?.reasoning).toBe(
+      "Deterministic mock reasoning for E2E tests.",
+    );
 
     // The auto-created ancestor tag must exist with reasoning = null.
     const parentTag = tagsData.tags.find(
@@ -121,7 +125,7 @@ test.describe("AI auto-tagging", () => {
     const table = await connectAndRefresh(page);
 
     // Trigger AI Evaluate to create an unconfirmed tag
-    await table.locator("tbody tr").first().click();
+    await table.locator("[data-testid^='tx-row-']").first().click();
     await page
       .getByTestId("transaction-dialog")
       .getByTestId("ai-evaluate-button")
@@ -133,9 +137,9 @@ test.describe("AI auto-tagging", () => {
     ).toBeVisible();
     await page.keyboard.press("Escape");
 
-    // Navigate to Tags page
-    await page.getByTestId("nav-tags").click();
-    await expect(page).toHaveURL(/\/tags$/);
+    // Navigate to Trends page
+    await page.getByTestId("nav-trends").click();
+    await expect(page).toHaveURL(/\/trends$/);
 
     const unconfirmed = page.getByTestId("unconfirmed-section");
     const confirmed = page.getByTestId("confirmed-section");
@@ -147,7 +151,9 @@ test.describe("AI auto-tagging", () => {
     ).toHaveCount(0);
 
     // Click the tag → detail dialog → Confirm
-    await unconfirmed.getByTestId("tag-row-ai-mock/new-parent/new-leaf").click();
+    await unconfirmed
+      .getByTestId("tag-row-ai-mock/new-parent/new-leaf")
+      .click();
     const detail = page.getByTestId("tag-detail-dialog");
     await expect(detail).toBeVisible();
     await detail.getByTestId("tag-confirm-button").click();
@@ -166,7 +172,7 @@ test.describe("AI auto-tagging", () => {
     request,
   }) => {
     const table = await connectAndRefresh(page);
-    await table.locator("tbody tr").first().click();
+    await table.locator("[data-testid^='tx-row-']").first().click();
     await page
       .getByTestId("transaction-dialog")
       .getByTestId("ai-evaluate-button")
@@ -178,7 +184,7 @@ test.describe("AI auto-tagging", () => {
     ).toBeVisible();
     await page.keyboard.press("Escape");
 
-    await page.getByTestId("nav-tags").click();
+    await page.getByTestId("nav-trends").click();
     await page
       .getByTestId("unconfirmed-section")
       .getByTestId("tag-row-ai-mock/new-parent/new-leaf")
@@ -214,7 +220,7 @@ test.describe("AI auto-tagging", () => {
     const table = await connectAndRefresh(page);
 
     // Click the first row, capture its tx id from the data-testid attribute
-    const firstRow = table.locator("tbody tr").first();
+    const firstRow = table.locator("[data-testid^='tx-row-']").first();
     const testId = await firstRow.getAttribute("data-testid");
     const txId = Number(testId?.replace("tx-row-", ""));
     expect(txId).toBeGreaterThan(0);
@@ -231,8 +237,8 @@ test.describe("AI auto-tagging", () => {
     ).toBeVisible();
     await page.keyboard.press("Escape");
 
-    // Navigate to Tags, reject the unconfirmed tag
-    await page.getByTestId("nav-tags").click();
+    // Navigate to Trends, reject the unconfirmed tag
+    await page.getByTestId("nav-trends").click();
     await page
       .getByTestId("unconfirmed-section")
       .getByTestId("tag-row-ai-mock/new-parent/new-leaf")
@@ -276,11 +282,16 @@ test.describe("AI auto-tagging", () => {
     const switcher = page.getByTestId("account-switcher");
     await switcher.click();
     await page.getByTestId("account-option-all").click();
-    await expect(table.locator("tbody tr").filter({ hasText: "Albert Heijn" }).first()).toBeVisible({ timeout: 10_000 });
+    await expect(
+      table
+        .locator("[data-testid^='tx-row-']")
+        .filter({ hasText: "Albert Heijn" })
+        .first(),
+    ).toBeVisible({ timeout: 10_000 });
 
     // Find the "Albert Heijn" / Groceries transaction (MOCK-TX-002)
     const groceriesRow = table
-      .locator("tbody tr")
+      .locator("[data-testid^='tx-row-']")
       .filter({ hasText: "Albert Heijn" })
       .first();
     const testId = await groceriesRow.getAttribute("data-testid");
@@ -332,10 +343,15 @@ test.describe("AI auto-tagging", () => {
     await connectAndRefresh(page);
 
     // Confirm all transactions start as pending.
-    const beforeCount = (await request.get("/api/transactions/pending-count").then((r) => r.json()) as { count: number }).count;
+    const beforeCount = (
+      (await request
+        .get("/api/transactions/pending-count")
+        .then((r) => r.json())) as { count: number }
+    ).count;
     expect(beforeCount).toBeGreaterThan(0);
 
-    // Click the batch evaluate button.
+    // Click the batch evaluate button on Trends page.
+    await page.getByTestId("nav-trends").click();
     const batchBtn = page.getByTestId("batch-evaluate-button");
     await expect(batchBtn).toBeVisible();
     await batchBtn.click();
@@ -344,19 +360,30 @@ test.describe("AI auto-tagging", () => {
     await expect(batchBtn).not.toBeDisabled({ timeout: 15_000 });
 
     // All transactions should now be evaluated → pending count = 0.
-    const afterCount = (await request.get("/api/transactions/pending-count").then((r) => r.json()) as { count: number }).count;
+    const afterCount = (
+      (await request
+        .get("/api/transactions/pending-count")
+        .then((r) => r.json())) as { count: number }
+    ).count;
     expect(afterCount).toBe(0);
 
     // The mock tags should have been assigned to at least the first transaction.
     const tagsRes = await request.get("/api/tags?status=unconfirmed");
-    const tagsData = (await tagsRes.json()) as { tags: Array<{ path: string }> };
-    expect(tagsData.tags.some((t) => t.path === "ai-mock/new-parent/new-leaf")).toBe(true);
+    const tagsData = (await tagsRes.json()) as {
+      tags: Array<{ path: string }>;
+    };
+    expect(
+      tagsData.tags.some((t) => t.path === "ai-mock/new-parent/new-leaf"),
+    ).toBe(true);
 
     // Clicking batch evaluate again should be a no-op (0 processed).
     await batchBtn.click();
     await expect(batchBtn).not.toBeDisabled({ timeout: 10_000 });
-    const finalCount = (await request.get("/api/transactions/pending-count").then((r) => r.json()) as { count: number }).count;
+    const finalCount = (
+      (await request
+        .get("/api/transactions/pending-count")
+        .then((r) => r.json())) as { count: number }
+    ).count;
     expect(finalCount).toBe(0);
   });
-
 });
