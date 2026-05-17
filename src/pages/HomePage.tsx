@@ -101,20 +101,29 @@ export default function HomePage() {
       transition={{ duration: 0.3 }}
     >
       {/* Chat Hero */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }}>
-        <form onSubmit={handleChatSubmit} data-testid="chat-form" className="flex gap-2">
-          <Input
-            placeholder={hasData ? "Ask about your finances..." : "Connect a bank to get started"}
-            value={chatQuestion}
-            onChange={(e) => setChatQuestion(e.target.value)}
-            disabled={!hasData}
-            data-testid="chat-input"
-            className="flex-1 h-11"
-          />
-          <Button type="submit" disabled={!hasData || !chatQuestion.trim()} data-testid="chat-submit" className="h-11">
-            <Send className="h-4 w-4" />
-          </Button>
-        </form>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="space-y-2">
+        <h2 className="text-lg font-semibold tracking-tight">Ask your finances</h2>
+        <div className="rounded-2xl bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 p-[1px]">
+          <form onSubmit={handleChatSubmit} data-testid="chat-form" className="relative">
+            <Input
+              placeholder={hasData ? "e.g. How much did I spend on food this month?" : "Connect a bank to get started"}
+              value={chatQuestion}
+              onChange={(e) => setChatQuestion(e.target.value)}
+              disabled={!hasData}
+              data-testid="chat-input"
+              className="h-14 pl-5 pr-14 text-base rounded-2xl border-0 bg-background focus-visible:ring-primary/40"
+            />
+            <Button
+              type="submit"
+              disabled={!hasData || !chatQuestion.trim()}
+              data-testid="chat-submit"
+              size="icon"
+              className="absolute right-3 top-1/2 -translate-y-1/2 h-10 w-10 rounded-lg"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </form>
+        </div>
       </motion.div>
 
       {/* Empty state — feature preview */}

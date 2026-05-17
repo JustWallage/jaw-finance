@@ -3,7 +3,6 @@ import { useSearchParams } from "react-router-dom";
 import { Loader2, Send, MessageCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -47,30 +46,50 @@ export default function ChatPage() {
     }
   }, [chatQuestion]);
 
+  const hasResponse = chatLoading || chatResult;
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if (chatQuestion.trim() && !chatLoading) handleChatSubmit();
+    }
+  }
+
   return (
     <motion.div
-      className="space-y-6"
+      className="flex flex-col flex-1"
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
-      <h1 className="text-2xl font-bold tracking-tight">Ask your finances</h1>
+      <div className={`w-full transition-all duration-400 ease-in-out ${hasResponse ? "" : "flex-1 flex flex-col justify-center"}`}>
+        {!hasResponse && <h1 className="text-2xl font-bold tracking-tight mb-4 text-center">Ask your finances</h1>}
+        <form onSubmit={handleChatSubmit} data-testid="chat-form" className="relative w-full">
+          <textarea
+            ref={chatInputRef as React.RefObject<HTMLTextAreaElement>}
+            placeholder="Ask about your finances..."
+            value={chatQuestion}
+            onChange={(e) => setChatQuestion(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={chatLoading}
+            data-testid="chat-input"
+            rows={3}
+            className="flex w-full rounded-xl border border-input bg-background px-4 py-3 pb-14 text-base shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+            autoFocus
+          />
+          <Button
+            type="submit"
+            disabled={chatLoading || !chatQuestion.trim()}
+            data-testid="chat-submit"
+            size="icon"
+            className="absolute right-3 bottom-3 h-10 w-10 rounded-lg"
+          >
+            {chatLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          </Button>
+        </form>
+      </div>
 
-      <form onSubmit={handleChatSubmit} data-testid="chat-form" className="flex gap-2">
-        <Input
-          ref={chatInputRef}
-          placeholder="Ask about your finances..."
-          value={chatQuestion}
-          onChange={(e) => setChatQuestion(e.target.value)}
-          disabled={chatLoading}
-          data-testid="chat-input"
-          className="flex-1"
-          autoFocus
-        />
-        <Button type="submit" disabled={chatLoading || !chatQuestion.trim()} data-testid="chat-submit">
-          {chatLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-        </Button>
-      </form>
+      {hasResponse && <div className="mt-6 space-y-6">
 
       {chatLoading && (
         <Card data-testid="chat-loading">
@@ -153,6 +172,7 @@ export default function ChatPage() {
           </Card>
         </motion.div>
       )}
+      </div>}
     </motion.div>
   );
 }

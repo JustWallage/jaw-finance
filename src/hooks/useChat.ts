@@ -20,7 +20,7 @@ export function useChat() {
   const [chatLoading, setChatLoading] = useState(false);
   const [chatResult, setChatResult] = useState<ChatResult | null>(null);
   const [chatExpanded, setChatExpanded] = useState(false);
-  const chatInputRef = useRef<HTMLInputElement>(null);
+  const chatInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const [thinkingDots, setThinkingDots] = useState(1);
 
   useEffect(() => {

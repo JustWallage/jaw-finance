@@ -53,7 +53,7 @@ export function Layout() {
           )}
         </div>
       </header>
-      <div className="w-full max-w-2xl space-y-6">
+      <div className="w-full max-w-2xl flex-1 flex flex-col">
         <Outlet context={{ hideIncome }} />
       </div>
       <BottomNav />
