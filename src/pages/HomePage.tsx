@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+} from "@/components/ui/drawer";
 import { useBankConnectionContext } from "../components/BankConnectionProvider";
 import { useIncomeAnalytics } from "../hooks/useIncomeAnalytics";
 import { useTags } from "../hooks/useTags";
@@ -103,7 +103,7 @@ export default function HomePage() {
       {/* Chat Hero */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="space-y-2">
         <h2 className="text-lg font-semibold tracking-tight">Ask your finances</h2>
-        <div className="rounded-2xl bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 p-[1px]">
+        <div className="rounded-2xl bg-linear-to-r from-primary/20 via-primary/10 to-primary/20 p-px">
           <form onSubmit={handleChatSubmit} data-testid="chat-form" className="relative">
             <Input
               placeholder={hasData ? "e.g. How much did I spend on food this month?" : "Connect a bank to get started"}
@@ -201,48 +201,63 @@ export default function HomePage() {
         </motion.div>
       )}
 
-      {/* Transaction Detail Dialog */}
-      <Dialog open={selectedTx !== null} onOpenChange={(open) => { if (!open) setSelectedTxId(null); }}>
-        <DialogContent data-testid="transaction-dialog">
-          <DialogHeader>
-            <DialogTitle>{selectedTx?.counterparty_name ?? "Transaction"}</DialogTitle>
-            <DialogDescription>
-              {selectedTx?.booking_date} · {selectedTx?.credit_debit === "DBIT" ? "-" : "+"}{selectedTx?.amount} {selectedTx?.currency}
-            </DialogDescription>
-          </DialogHeader>
-          {selectedTx?.remittance_info && (
-            <p className="text-sm text-muted-foreground">{selectedTx.remittance_info}</p>
-          )}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium">Tags</p>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleEvaluate}
-                disabled={evaluating}
-                data-testid="ai-evaluate-button"
-              >
-                {evaluating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                AI Evaluate
-              </Button>
-            </div>
-            {selectedTx && (
-              <TagSelector
-                transactionId={selectedTx.id}
-                assignedTags={selectedTxTags}
-                allTags={tags}
-                onAssign={assignTag}
-                onRemove={removeTag}
-                onDelete={deleteTag}
-                onCreate={createTag}
-                getTagCount={getTagCount}
-                onTagsChanged={handleTagsChanged}
-              />
+      {/* Transaction Detail Bottom Sheet */}
+      <Drawer open={selectedTx !== null} onOpenChange={(open) => { if (!open) setSelectedTxId(null); }}>
+        <DrawerContent data-testid="transaction-dialog">
+          <div className="max-h-[70vh] overflow-y-auto px-6 pb-8">
+            <DrawerHeader className="px-0">
+              <DrawerTitle className="text-lg">{selectedTx?.counterparty_name ?? "Transaction"}</DrawerTitle>
+              <DrawerDescription className="sr-only">Transaction details</DrawerDescription>
+            </DrawerHeader>
+
+            {/* Amount hero */}
+            <p className={`text-3xl font-bold tracking-tight mt-2 ${selectedTx?.credit_debit === "DBIT" ? "text-expense" : "text-income"}`}>
+              {selectedTx?.credit_debit === "DBIT" ? "-" : "+"}{selectedTx?.amount} {selectedTx?.currency}
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">{selectedTx?.booking_date}</p>
+
+            {/* Remittance info */}
+            {selectedTx?.remittance_info && (
+              <p className="text-sm text-muted-foreground mt-4 rounded-lg bg-muted/50 px-3 py-2">
+                {selectedTx.remittance_info}
+              </p>
             )}
+
+            {/* Divider */}
+            <div className="border-t my-5" />
+
+            {/* Tags */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">Tags</p>
+                <Button
+                  size="sm"
+                  onClick={handleEvaluate}
+                  disabled={evaluating}
+                  data-testid="ai-evaluate-button"
+                  className="gap-1.5"
+                >
+                  {evaluating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                  AI Evaluate
+                </Button>
+              </div>
+              {selectedTx && (
+                <TagSelector
+                  transactionId={selectedTx.id}
+                  assignedTags={selectedTxTags}
+                  allTags={tags}
+                  onAssign={assignTag}
+                  onRemove={removeTag}
+                  onDelete={deleteTag}
+                  onCreate={createTag}
+                  getTagCount={getTagCount}
+                  onTagsChanged={handleTagsChanged}
+                />
+              )}
+            </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </DrawerContent>
+      </Drawer>
     </motion.div>
   );
 }
