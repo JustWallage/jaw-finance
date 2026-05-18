@@ -112,8 +112,8 @@ test.describe("Transaction tagging", () => {
     await page.getByTestId("tag-create-new").click();
     await expect(dialog.getByTestId("tag-badge-to-delete")).toBeVisible();
 
-    // Close dialog by clicking outside
-    await page.locator("body").click({ position: { x: 0, y: 0 } });
+    // Close dialog by pressing Escape
+    await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
 
     await table.locator("[data-testid^='tx-row-']").nth(1).click();

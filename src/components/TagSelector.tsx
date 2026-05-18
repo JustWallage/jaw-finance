@@ -1,13 +1,8 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { X, Trash2, Plus, Tag } from "lucide-react";
 import type { DBTag } from "../../db/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import {
   Command,
   CommandEmpty,
@@ -54,6 +49,18 @@ export function TagSelector({
   const [search, setSearch] = useState("");
   const [deleteTag, setDeleteTag] = useState<DBTag | null>(null);
   const [deleteCount, setDeleteCount] = useState(0);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
 
   const assignedIds = new Set(assignedTags.map((t) => t.id));
   const unassigned = allTags.filter((t) => !assignedIds.has(t.id));
@@ -124,69 +131,68 @@ export function TagSelector({
             </button>
           </Badge>
         ))}
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 gap-1 px-2 text-xs"
-                data-testid="tag-add-button"
-              >
-                <Tag className="h-3 w-3" />
-                Add tag
-              </Button>
-            }
-          />
-          <PopoverContent className="w-64 p-0" align="start">
-            <Command>
-              <CommandInput
-                placeholder="Search or create tag..."
-                value={search}
-                onValueChange={setSearch}
-                data-testid="tag-search-input"
-              />
-              <CommandList>
-                <CommandEmpty>
-                  {search.trim() && (
-                    <button
-                      className="flex w-full items-center gap-2 px-2 py-1.5 text-sm hover:bg-accent cursor-pointer"
-                      onClick={handleCreate}
-                      data-testid="tag-create-new"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      Create &ldquo;{search.trim()}&rdquo;
-                    </button>
-                  )}
-                </CommandEmpty>
-                <CommandGroup>
-                  {unassigned.map((tag) => (
-                    <CommandItem
-                      key={tag.id}
-                      value={tag.path}
-                      onSelect={() => handleAssign(tag)}
-                      data-testid={`tag-option-${tag.path}`}
-                    >
-                      {tag.path}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-                {search.trim() && !exactMatch && unassigned.length > 0 && (
+        <div className="relative" ref={dropdownRef}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 gap-1 px-2 text-xs"
+            data-testid="tag-add-button"
+            onClick={() => setOpen(!open)}
+          >
+            <Tag className="h-3 w-3" />
+            Add tag
+          </Button>
+          {open && (
+            <div className="absolute left-0 top-full z-50 mt-1 w-64 rounded-lg border bg-popover shadow-md">
+              <Command>
+                <CommandInput
+                  placeholder="Search or create tag..."
+                  value={search}
+                  onValueChange={setSearch}
+                  data-testid="tag-search-input"
+                />
+                <CommandList>
+                  <CommandEmpty>
+                    {search.trim() && (
+                      <button
+                        className="flex w-full items-center gap-2 px-2 py-1.5 text-sm hover:bg-accent cursor-pointer"
+                        onClick={handleCreate}
+                        data-testid="tag-create-new"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Create &ldquo;{search.trim()}&rdquo;
+                      </button>
+                    )}
+                  </CommandEmpty>
                   <CommandGroup>
-                    <CommandItem
-                      value={`__create__${search}`}
-                      onSelect={handleCreate}
-                      data-testid="tag-create-new"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      Create &ldquo;{search.trim()}&rdquo;
-                    </CommandItem>
+                    {unassigned.map((tag) => (
+                      <CommandItem
+                        key={tag.id}
+                        value={tag.path}
+                        onSelect={() => handleAssign(tag)}
+                        data-testid={`tag-option-${tag.path}`}
+                      >
+                        {tag.path}
+                      </CommandItem>
+                    ))}
                   </CommandGroup>
-                )}
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
+                  {search.trim() && !exactMatch && unassigned.length > 0 && (
+                    <CommandGroup>
+                      <CommandItem
+                        value={`__create__${search}`}
+                        onSelect={handleCreate}
+                        data-testid="tag-create-new"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Create &ldquo;{search.trim()}&rdquo;
+                      </CommandItem>
+                    </CommandGroup>
+                  )}
+                </CommandList>
+              </Command>
+            </div>
+          )}
+        </div>
       </div>
 
       <AlertDialog open={deleteTag !== null} onOpenChange={(v) => { if (!v) setDeleteTag(null); }}>
