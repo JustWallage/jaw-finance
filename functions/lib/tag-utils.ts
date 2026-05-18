@@ -128,7 +128,7 @@ export async function fetchHistoricalTagFrequencies(
        JOIN tags t ON t.id = tt.tag_id
        JOIN transactions tr ON tr.id = tt.transaction_id
        WHERE tr.${field} = ? AND tr.user_email = ? AND tt.transaction_id NOT IN (${placeholders})
-         AND t.source != 'system' AND t.status != 'rejected'
+         AND t.status != 'rejected'
        GROUP BY t.path`,
     )
     .bind(value, userEmail, ...ids)

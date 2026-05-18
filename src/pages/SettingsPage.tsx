@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Loader2, Link as LinkIcon, AlertTriangle, History, Pencil, User } from "lucide-react";
+import { Loader2, Link as LinkIcon, AlertTriangle, History, Pencil, User, Database } from "lucide-react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,6 +46,44 @@ export default function SettingsPage() {
   const [nicknameDraft, setNicknameDraft] = useState<Record<string, string>>({});
   const [nicknameSaving, setNicknameSaving] = useState(false);
   const [nicknameSaveError, setNicknameSaveError] = useState<string | null>(null);
+
+  const [merchantPendingLoading, setMerchantPendingLoading] = useState(false);
+  const [merchantForceLoading, setMerchantForceLoading] = useState(false);
+  const [merchantResult, setMerchantResult] = useState<string | null>(null);
+
+  async function handleMerchantPending() {
+    setMerchantPendingLoading(true);
+    setMerchantResult(null);
+    try {
+      const res = await fetch("/api/transactions/evaluate-merchant-pending", {
+        method: "POST",
+        headers: authHeaders(),
+      });
+      const data = await res.json() as { evaluated: number };
+      setMerchantResult(`Evaluated ${data.evaluated} pending transactions`);
+    } catch {
+      setMerchantResult("Failed to evaluate");
+    } finally {
+      setMerchantPendingLoading(false);
+    }
+  }
+
+  async function handleMerchantForce() {
+    setMerchantForceLoading(true);
+    setMerchantResult(null);
+    try {
+      const res = await fetch("/api/transactions/evaluate-merchant-all-force", {
+        method: "POST",
+        headers: authHeaders(),
+      });
+      const data = await res.json() as { evaluated: number };
+      setMerchantResult(`Re-evaluated ${data.evaluated} transactions`);
+    } catch {
+      setMerchantResult("Failed to evaluate");
+    } finally {
+      setMerchantForceLoading(false);
+    }
+  }
 
   async function openBankDialog() {
     setBankDialogOpen(true);
@@ -259,6 +297,40 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Merchant Dictionary Card */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base"><Database className="h-4 w-4" /> Merchant Dictionary</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">Auto-tag transactions by matching merchant names against the global pattern dictionary.</p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              onClick={handleMerchantPending}
+              disabled={merchantPendingLoading || merchantForceLoading}
+              data-testid="merchant-evaluate-pending"
+            >
+              {merchantPendingLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Evaluate Pending
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleMerchantForce}
+              disabled={merchantPendingLoading || merchantForceLoading}
+              data-testid="merchant-evaluate-force"
+            >
+              {merchantForceLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Re-evaluate All
+            </Button>
+          </div>
+          {merchantResult && (
+            <p className="text-sm text-muted-foreground" data-testid="merchant-result">{merchantResult}</p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Bank Selection Dialog */}
       <Dialog open={bankDialogOpen} onOpenChange={setBankDialogOpen}>

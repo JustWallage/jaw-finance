@@ -60,5 +60,8 @@ jobs:
       - name: Run DB Migrations
         run: pnpm exec wrangler d1 migrations apply DB --remote --env ${{ inputs.environment }}
 
+      - name: Seed Merchant Patterns
+        run: node scripts/seed-merchant-patterns.mjs remote --env ${{ inputs.environment }}
+
       - name: Deploy
         run: pnpm exec wrangler pages deploy dist --project-name jaw-finance --branch ${{ inputs.branch }} --commit-dirty=true

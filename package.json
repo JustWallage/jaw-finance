@@ -7,6 +7,7 @@
     "dev": "vite",
     "dev:pages": "wrangler d1 migrations apply jaw-finance-local --local && wrangler pages dev --proxy 5173",
     "migrate:local": "echo y | wrangler d1 migrations apply jaw-finance-local --local",
+    "seed:local": "node scripts/seed-merchant-patterns.mjs local",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "check:ts": "tsc --noEmit",

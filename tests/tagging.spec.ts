@@ -69,11 +69,11 @@ test.describe("Transaction tagging", () => {
     await dialog.getByTestId("tag-add-button").click();
     const searchInput = page.getByTestId("tag-search-input");
     await expect(searchInput).toBeVisible();
-    await searchInput.fill("food/groceries");
+    await searchInput.fill("personal/misc");
     await page.getByTestId("tag-create-new").click();
 
     // The tag badge should appear in the dialog
-    await expect(dialog.getByTestId("tag-badge-food/groceries")).toBeVisible();
+    await expect(dialog.getByTestId("tag-badge-personal/misc")).toBeVisible();
   });
 
   test("remove a tag from a transaction via X icon", async ({ page }) => {

@@ -1,5 +1,6 @@
 import { ebFetch, getUserEmail, type EBEnv } from "../../lib/enable-banking";
 import type { EBTransactionsResponse } from "../../../db/types";
+import { evaluateMerchantPatterns } from "../../lib/merchant-patterns";
 
 export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
   const { env } = context;
@@ -54,8 +55,9 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
             tx.credit_debit_indicator === "CRDT"
               ? tx.debtor?.name
               : tx.creditor?.name;
+          const remittanceInfo = tx.remittance_information?.join("; ") ?? null;
 
-          await env.DB.prepare(
+          const inserted = await env.DB.prepare(
             `INSERT INTO transactions (entry_reference, account_uid, amount, currency, credit_debit, status, booking_date, transaction_date, counterparty_name, remittance_info, user_email)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(entry_reference, account_uid, user_email) DO NOTHING`,
@@ -70,10 +72,28 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
               tx.booking_date ?? null,
               tx.transaction_date ?? null,
               counterparty ?? null,
-              tx.remittance_information?.join("; ") ?? null,
+              remittanceInfo,
               userEmail,
             )
             .run();
+
+          // Auto-tag newly inserted transactions against merchant dictionary
+          if (inserted.meta.changes > 0) {
+            const row = await env.DB.prepare(
+              `SELECT id FROM transactions WHERE entry_reference = ? AND account_uid = ? AND user_email = ?`,
+            )
+              .bind(tx.entry_reference ?? null, conn.account_uid, userEmail)
+              .first<{ id: number }>();
+            if (row) {
+              await evaluateMerchantPatterns(
+                env.DB,
+                row.id,
+                userEmail,
+                remittanceInfo,
+                counterparty ?? null,
+              );
+            }
+          }
 
           totalSynced++;
         }

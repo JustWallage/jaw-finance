@@ -103,6 +103,9 @@ jobs:
           set -o pipefail
           pnpm exec wrangler d1 migrations apply DB --remote --env preview 2>&1 | tee /tmp/ci-logs/wrangler-d1-migrations.log
 
+      - name: Seed Merchant Patterns
+        run: node scripts/seed-merchant-patterns.mjs remote --env preview
+
       - name: Deploy to branch
         run: pnpm exec wrangler pages deploy dist --project-name jaw-finance --branch ${{ steps.url.outputs.sanitized_branch }} --commit-dirty=true
 

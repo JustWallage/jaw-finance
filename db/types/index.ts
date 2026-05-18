@@ -33,6 +33,8 @@ export interface DBTransaction {
   created_at: string;
   /** 0 = not yet AI-evaluated, otherwise Unix epoch seconds when evaluated. */
   ai_evaluated: number;
+  /** 0 = not yet merchant-dictionary-evaluated, otherwise Unix epoch seconds when evaluated. */
+  merchant_db_evaluated: number;
 }
 
 /** Enable Banking API transaction shape. */

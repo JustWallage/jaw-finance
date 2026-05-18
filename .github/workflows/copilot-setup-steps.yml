@@ -62,5 +62,8 @@ jobs:
       - name: Apply local DB migrations
         run: pnpm migrate:local
 
+      - name: Seed merchant patterns
+        run: pnpm seed:local
+
       - name: Install Playwright browsers
         run: pnpm playwright:install
