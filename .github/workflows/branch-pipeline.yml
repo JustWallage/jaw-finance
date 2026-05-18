@@ -69,6 +69,11 @@ jobs:
           echo "staging_db_id=$(terraform output -raw d1_database_id_staging)" >> "$GITHUB_OUTPUT"
 
       - name: Check
+        env:
+          TF_VAR_cloudflare_account_id: dummy
+          TF_VAR_cloudflare_api_token: dummy
+          TF_VAR_google_client_id: dummy
+          TF_VAR_google_client_secret: dummy
         run: pnpm check
 
       - name: Build

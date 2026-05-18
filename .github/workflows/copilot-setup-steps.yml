@@ -39,6 +39,11 @@ jobs:
 
       - name: Terraform init (providers only, no backend)
         run: cd iac && terraform init -backend=false -input=false
+        env:
+          TF_VAR_cloudflare_account_id: dummy
+          TF_VAR_cloudflare_api_token: dummy
+          TF_VAR_google_client_id: dummy
+          TF_VAR_google_client_secret: dummy
 
       - name: Strip remote AI binding from wrangler.toml
         run: sed -i '/^\[ai\]$/,/^binding = "AI"$/d' wrangler.toml

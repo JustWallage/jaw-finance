@@ -67,6 +67,18 @@ resource "cloudflare_d1_database" "jaw_finance_prod" {
 
 # --- Cloudflare Access: Zero Trust ---
 
+# Google Identity Provider
+resource "cloudflare_zero_trust_access_identity_provider" "google" {
+  account_id = var.cloudflare_account_id
+  name       = "Google"
+  type       = "google"
+
+  config = {
+    client_id     = var.google_client_id
+    client_secret = var.google_client_secret
+  }
+}
+
 # Access Application – protects finance.just.wallage.nl
 resource "cloudflare_zero_trust_access_application" "jaw_finance" {
   account_id                = var.cloudflare_account_id
@@ -74,20 +86,17 @@ resource "cloudflare_zero_trust_access_application" "jaw_finance" {
   domain                    = "finance.just.wallage.nl"
   type                      = "self_hosted"
   session_duration          = "24h"
-  auto_redirect_to_identity = false
+  auto_redirect_to_identity = true
   app_launcher_visible      = true
 
   # We strictly depend on the domain being registered in Pages first
   depends_on = [cloudflare_pages_domain.jaw_finance_domain]
 
   policies = [{
-    name     = "Allow email OTP"
+    name     = "Allow Google login"
     decision = "allow"
     include = [{
       everyone = {}
-      # email = {
-      #   email = var.allowed_emails[0]
-      # }
     }]
   }]
 }
