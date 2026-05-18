@@ -62,7 +62,12 @@ test.describe("Bank connection flow via mock", () => {
     await page.goto("/settings");
     const refreshBtn = page.getByTestId("refresh-button");
     await expect(refreshBtn).toBeVisible({ timeout: 5_000 });
-    await refreshBtn.click();
+    await Promise.all([
+      page.waitForResponse(
+        (r) => r.url().includes("/api/bank/refresh") && r.status() === 200,
+      ),
+      refreshBtn.click(),
+    ]);
 
     // Navigate to home and verify transactions
     await page.goto("/");
@@ -185,7 +190,12 @@ test.describe("Bank connection flow via mock", () => {
     await page.goto("/settings");
     const refreshBtn = page.getByTestId("refresh-button");
     await expect(refreshBtn).toBeVisible({ timeout: 5_000 });
-    await refreshBtn.click();
+    await Promise.all([
+      page.waitForResponse(
+        (r) => r.url().includes("/api/bank/refresh") && r.status() === 200,
+      ),
+      refreshBtn.click(),
+    ]);
 
     await page.goto("/");
     const feed = page.getByTestId("transactions-table");
@@ -205,7 +215,12 @@ test.describe("Bank connection flow via mock", () => {
     await page.goto("/settings");
     const refreshBtn2 = page.getByTestId("refresh-button");
     await expect(refreshBtn2).toBeVisible({ timeout: 5_000 });
-    await refreshBtn2.click();
+    await Promise.all([
+      page.waitForResponse(
+        (r) => r.url().includes("/api/bank/refresh") && r.status() === 200,
+      ),
+      refreshBtn2.click(),
+    ]);
 
     await page.goto("/");
     // Wait for feed to re-render with fresh data

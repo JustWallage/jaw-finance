@@ -46,7 +46,12 @@ async function connectAndRefresh(page: Page) {
   await page.goto("/settings");
   const refreshBtn = page.getByTestId("refresh-button");
   await expect(refreshBtn).toBeVisible({ timeout: 5_000 });
-  await refreshBtn.click();
+  await Promise.all([
+    page.waitForResponse(
+      (r) => r.url().includes("/api/bank/refresh") && r.status() === 200,
+    ),
+    refreshBtn.click(),
+  ]);
 
   await page.goto("/");
   const feed = page.getByTestId("transactions-table");
