@@ -1,0 +1,1 @@
+Merchant db does most of the tagging, but we still need AI to determine things like longer trends, eg vacations, etc.

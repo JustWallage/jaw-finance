@@ -1,0 +1,2 @@
+Currently before you've received your salary in a calendar month (eg March) it shows as if you didn't earn anything that month. Instead it might make more sense to look at the last 30 days for this month.
+I think only for the current month it makes sense to look at the last 30.5 days, for the past months just look at calendar months.

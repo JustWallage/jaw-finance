@@ -1,0 +1,1 @@
+Currently the auto-tag pending button is on the tags page, instead can you move it to the settings page in its own card, similar to the Merchant Dictionary card. There should only be a button auto-tag pending and furthermore some analytics, so the nr of AI evaluated transactions, the nr of pending ones, and the total nr of transactions.
