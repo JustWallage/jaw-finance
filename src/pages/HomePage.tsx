@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
-import { Loader2, Send, Sparkles, LinkIcon } from "lucide-react";
+import { Loader2, Send, Sparkles, LinkIcon, RefreshCw } from "lucide-react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,6 +31,7 @@ export default function HomePage() {
     loading,
     activeConnection,
     selectedAccountUid,
+    handleRefresh,
   } = useBankConnectionContext();
 
   const { currentMonthIncome, currentMonthExpense, pastMonths } =
@@ -190,9 +191,21 @@ export default function HomePage() {
         </motion.div>
       )}
 
-      {/* Transaction Feed */}
+      {/* Refresh Button + Transaction Feed */}
       {hasData && transactions.length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="space-y-2">
+          <div className="flex justify-end">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleRefresh}
+              disabled={loading === "refresh"}
+              data-testid="refresh-transactions-button"
+              className="h-8 w-8"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading === "refresh" ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
           <TransactionFeed
             transactions={transactions}
             onSelect={openTransaction}
