@@ -111,6 +111,7 @@ export default function SettingsPage() {
       b.name.toLowerCase().includes(bankSearch.toLowerCase()) ||
       b.country.toLowerCase().includes(bankSearch.toLowerCase()),
   );
+  const hasExpiredConnection = connections.length > 0 && !activeConnection;
 
   function openNicknameDialog() {
     const draft: Record<string, string> = {};
@@ -221,14 +222,15 @@ export default function SettingsPage() {
           <div className="flex flex-wrap gap-2">
             {!activeConnection ? (
               <Button
+                variant={hasExpiredConnection ? "destructive" : "default"}
                 onClick={openBankDialog}
                 disabled={loading !== null}
-                data-testid="connect-button"
+                data-testid={hasExpiredConnection ? "reconnect-button" : "connect-button"}
               >
                 {loading === "connect" ? (
                   <><Loader2 className="animate-spin" /> Connecting…</>
                 ) : (
-                  <><LinkIcon className="h-4 w-4" /> Connect Bank</>
+                  hasExpiredConnection ? <><LinkIcon className="h-4 w-4" /> Reconnect</> : <><LinkIcon className="h-4 w-4" /> Connect Bank</>
                 )}
               </Button>
             ) : (
