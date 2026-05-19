@@ -33,11 +33,11 @@ jobs:
       - name: Compute branch URL & DB name
         id: env
         run: |
-          BRANCH="${GITHUB_REF_NAME}"
-          SANITIZED=$(echo "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/^-*//;s/-*$//' | cut -c1-28)
+          # Use a unique branch name per run to avoid colliding with production or other runs
+          SANITIZED="e2e-${{ github.run_id }}"
           echo "branch_url=https://${SANITIZED}.jaw-finance.pages.dev" >> "$GITHUB_OUTPUT"
           echo "sanitized_branch=${SANITIZED}" >> "$GITHUB_OUTPUT"
-          echo "db_name=ci-db-${SANITIZED}-${{ github.run_id }}" >> "$GITHUB_OUTPUT"
+          echo "db_name=ci-db-${SANITIZED}" >> "$GITHUB_OUTPUT"
 
       - name: Create Ephemeral D1 Database
         id: create-db
@@ -72,10 +72,12 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Run E2E tests
+        timeout-minutes: 15
         env:
           BASE_URL: ${{ steps.env.outputs.branch_url }}
           CI: "true"
-        run: pnpm exec playwright test
+          DEBUG: "pw:api"
+        run: pnpm exec playwright test --reporter=list
 
       - name: Upload Playwright Report
         if: ${{ !cancelled() }}
