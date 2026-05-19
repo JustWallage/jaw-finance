@@ -1,0 +1,73 @@
+name: Deploy Production
+
+on:
+  workflow_call:
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy-prod:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: build
+          path: dist
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.12"
+
+      - name: Terraform Init
+        working-directory: iac
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+        run: |
+          terraform init \
+            -backend-config="endpoints={s3=\"https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com\"}"
+
+      - name: Read Terraform Outputs
+        id: tf
+        working-directory: iac
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+        run: |
+          echo "prod_db_id=$(terraform output -raw d1_database_id_prod)" >> "$GITHUB_OUTPUT"
+
+      - name: Generate wrangler.toml
+        run: |
+          sed \
+            -e "s/STAGING_DB_ID/${{ steps.tf.outputs.prod_db_id }}/g" \
+            -e "s/PROD_DB_ID/${{ steps.tf.outputs.prod_db_id }}/g" \
+            wrangler.toml.template > wrangler.toml
+
+      - name: Run DB Migrations
+        run: pnpm exec wrangler d1 migrations apply DB --remote --env production
+
+      - name: Seed Merchant Patterns
+        run: node scripts/seed-merchant-patterns.mjs remote --env production
+
+      - name: Deploy
+        run: pnpm exec wrangler pages deploy dist --project-name jaw-finance --branch main --commit-dirty=true

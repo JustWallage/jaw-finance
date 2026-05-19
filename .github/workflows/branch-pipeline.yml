@@ -23,141 +23,18 @@ jobs:
             echo "should_run=false" >> "$GITHUB_OUTPUT"
           fi
 
-  pipeline:
+  check-and-build:
     needs: check-trigger
     if: needs.check-trigger.outputs.should_run == 'true'
-    runs-on: ubuntu-latest
+    uses: ./.github/workflows/check-and-build.yml
+    permissions:
+      contents: read
+    secrets: inherit
+
+  ephemeral-e2e:
+    needs: check-and-build
+    uses: ./.github/workflows/ephemeral-e2e.yml
     permissions:
       contents: read
       deployments: write
-    env:
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "~1.12"
-
-      - name: Terraform Init
-        working-directory: iac
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
-        run: |
-          terraform init \
-            -backend-config="endpoints={s3=\"https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com\"}"
-
-      - name: Read Terraform Outputs
-        id: tf
-        working-directory: iac
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
-        run: |
-          echo "staging_db_id=$(terraform output -raw d1_database_id_staging)" >> "$GITHUB_OUTPUT"
-
-      - name: Check
-        env:
-          TF_VAR_cloudflare_account_id: dummy
-          TF_VAR_cloudflare_api_token: dummy
-          TF_VAR_google_client_id: dummy
-          TF_VAR_google_client_secret: dummy
-        run: pnpm check
-
-      - name: Build
-        run: pnpm build
-
-      - name: Compute branch URL & DB Name
-        id: url
-        run: |
-          BRANCH="${GITHUB_REF_NAME}"
-          SANITIZED=$(echo "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/^-*//;s/-*$//' | cut -c1-28)
-          echo "branch_url=https://${SANITIZED}.jaw-finance.pages.dev" >> "$GITHUB_OUTPUT"
-          echo "sanitized_branch=${SANITIZED}" >> "$GITHUB_OUTPUT"
-          
-          # Create a unique name for the ephemeral DB using the sanitized branch and GitHub run ID
-          echo "db_name=ci-db-${SANITIZED}-${{ github.run_id }}" >> "$GITHUB_OUTPUT"
-
-      - name: Create Ephemeral D1 Database
-        id: create-db
-        run: |
-          DB_NAME="${{ steps.url.outputs.db_name }}"
-          echo "Creating ephemeral database: $DB_NAME"
-          
-          # Run the creation command and capture the output
-          OUTPUT=$(pnpm exec wrangler d1 create "$DB_NAME")
-          
-          # Extract the generated database_id from Wrangler's output using grep and awk
-          DB_ID=$(echo "$OUTPUT" | grep 'database_id' | awk -F'"' '{print $2}')
-          
-          echo "Successfully created DB with ID: $DB_ID"
-          echo "db_id=$DB_ID" >> "$GITHUB_OUTPUT"
-
-      - name: Generate wrangler.toml
-        run: |
-          BRANCH_URL="${{ steps.url.outputs.branch_url }}"
-          # Inject the EPHEMERAL DB ID instead of the Staging DB ID
-          sed \
-            -e "s/STAGING_DB_ID/${{ steps.create-db.outputs.db_id }}/g" \
-            -e "s/PROD_DB_ID/${{ steps.create-db.outputs.db_id }}/g" \
-            -e "s|https://staging.jaw-finance.pages.dev/mock-enable-banking|${BRANCH_URL}/mock-enable-banking|g" \
-            -e "s|https://staging.jaw-finance.pages.dev/api/bank/callback|${BRANCH_URL}/api/bank/callback|g" \
-            wrangler.toml.template > wrangler.toml
-
-      - name: Run DB Migrations
-        run: |
-          mkdir -p /tmp/ci-logs
-          set -o pipefail
-          # This now runs against the ephemeral DB because we updated wrangler.toml
-          pnpm exec wrangler d1 migrations apply DB --remote --env preview 2>&1 | tee /tmp/ci-logs/wrangler-d1-migrations.log
-
-      - name: Seed Merchant Patterns
-        run: node scripts/seed-merchant-patterns.mjs remote --env preview
-
-      - name: Deploy to branch
-        run: pnpm exec wrangler pages deploy dist --project-name jaw-finance --branch ${{ steps.url.outputs.sanitized_branch }} --commit-dirty=true
-
-      - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
-
-      - name: Run E2E tests
-        env:
-          BASE_URL: ${{ steps.url.outputs.branch_url }}
-          CI: "true"
-        run: pnpm exec playwright test
-
-      - name: Upload Playwright Report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: |
-            playwright-report/
-            test-results/
-          retention-days: 7
-
-      - name: Upload Wrangler logs
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: wrangler-logs
-          path: |
-            /tmp/ci-logs/
-            /home/runner/.config/.wrangler/logs/
-          retention-days: 7
-
-      - name: Teardown Ephemeral D1 Database
-        if: always() 
-        run: |
-          echo "Deleting ephemeral database: ${{ steps.url.outputs.db_name }}"
-          pnpm exec wrangler d1 delete ${{ steps.url.outputs.db_name }} -y
+    secrets: inherit

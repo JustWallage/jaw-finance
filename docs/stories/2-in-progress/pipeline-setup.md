@@ -1,0 +1,4 @@
+First split the pipelines up into a check, build, test, test e2e staging and deploy-prod one. Then make the regular and the branch pipelines use the same one, I don't want duplicate workflows, if parts are used in multiple places (main pipeline and branch pipeline) then create a reusable workflow for it. Also make all the runs against the test env use ephemeral branches instead of the dedicated staging db. 
+
+Create a setup that if a branch pipeline was successful, on a merge you can add "-skip-staging" for merges that have already run successfully on a branch pipeline to directly deploy to prod (as the testing phase has already run).
+This way only the deploy-prod step is concurrency 1, but all other steps can run in parallel (then also the agents can run their full e2e pipelines in parallel).

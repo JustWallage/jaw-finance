@@ -1,0 +1,52 @@
+name: Check and Build
+
+on:
+  workflow_call:
+
+jobs:
+  check-and-build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.12"
+
+      - name: Terraform Init
+        working-directory: iac
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+        run: |
+          terraform init \
+            -backend-config="endpoints={s3=\"https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com\"}"
+
+      - name: Check
+        env:
+          TF_VAR_cloudflare_account_id: dummy
+          TF_VAR_cloudflare_api_token: dummy
+          TF_VAR_google_client_id: dummy
+          TF_VAR_google_client_secret: dummy
+        run: pnpm check
+
+      - name: Build
+        run: pnpm build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: dist
+          retention-days: 1

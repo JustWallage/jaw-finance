@@ -4,66 +4,18 @@ on:
   push:
     branches: [main]
 
-concurrency:
-  group: deploy-${{ github.ref }}
-  cancel-in-progress: false
-
 jobs:
   check-and-build:
-    runs-on: ubuntu-latest
+    uses: ./.github/workflows/check-and-build.yml
     permissions:
       contents: read
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "~1.12"
-
-      - name: Terraform Init
-        working-directory: iac
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
-        run: |
-          terraform init \
-            -backend-config="endpoints={s3=\"https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com\"}"
-
-      - name: Check
-        env:
-          TF_VAR_cloudflare_account_id: dummy
-          TF_VAR_cloudflare_api_token: dummy
-          TF_VAR_google_client_id: dummy
-          TF_VAR_google_client_secret: dummy
-        run: pnpm check
-
-      - name: Build
-        run: pnpm build
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: build
-          path: dist
-          retention-days: 1
+    secrets: inherit
 
   terraform:
     needs: check-and-build
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    outputs:
-      staging_db_id: ${{ steps.outputs.outputs.staging_db_id }}
-      prod_db_id: ${{ steps.outputs.outputs.prod_db_id }}
 
     steps:
       - uses: actions/checkout@v4
@@ -92,68 +44,38 @@ jobs:
           TF_VAR_google_client_secret: ${{ secrets.GOOGLE_CLIENT_SECRET }}
         run: terraform apply -auto-approve
 
-      - name: Read Terraform Outputs
-        id: outputs
-        working-directory: iac
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
-        run: |
-          echo "staging_db_id=$(terraform output -raw d1_database_id_staging)" >> "$GITHUB_OUTPUT"
-          echo "prod_db_id=$(terraform output -raw d1_database_id_prod)" >> "$GITHUB_OUTPUT"
-
-  set-secrets:
-    needs: check-and-build
+  check-skip-e2e:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: Set Pages Secrets
-        env:
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          ENABLE_BANKING_APP_ID: ${{ secrets.ENABLE_BANKING_APP_ID }}
-          ENABLE_BANKING_SECRET: ${{ secrets.ENABLE_BANKING_SECRET }}
+      - name: Check commit message for -skip-e2e
+        id: check
         run: |
-          secrets=(ENABLE_BANKING_APP_ID ENABLE_BANKING_SECRET)
-          for name in "${secrets[@]}"; do
-            for env in preview production; do
-              printf '%s' "${!name}" | pnpm exec wrangler pages secret put "$name" --project-name jaw-finance --env "$env"
-            done
-          done
+          if echo "${{ github.event.head_commit.message }}" | head -1 | grep -qi "\-skip-e2e"; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
 
-  deploy-test:
-    needs: [terraform, set-secrets]
-    uses: ./.github/workflows/staging-e2e.yml
+  ephemeral-e2e:
+    needs: [check-and-build, check-skip-e2e]
+    if: needs.check-skip-e2e.outputs.skip != 'true'
+    uses: ./.github/workflows/ephemeral-e2e.yml
     permissions:
       contents: read
       deployments: write
-    with:
-      staging_db_id: ${{ needs.terraform.outputs.staging_db_id }}
-      prod_db_id: ${{ needs.terraform.outputs.prod_db_id }}
     secrets: inherit
 
   deploy-prod:
-    needs: [deploy-test, terraform]
-    uses: ./.github/workflows/deploy-env.yml
+    needs: [check-and-build, terraform, ephemeral-e2e, check-skip-e2e]
+    if: |
+      always() &&
+      needs.check-and-build.result == 'success' &&
+      needs.terraform.result == 'success' &&
+      (needs.ephemeral-e2e.result == 'success' || needs.ephemeral-e2e.result == 'skipped')
+    uses: ./.github/workflows/deploy-prod.yml
     permissions:
       contents: read
       deployments: write
-    with:
-      branch: main
-      environment: production
-      staging_db_id: ${{ needs.terraform.outputs.staging_db_id }}
-      prod_db_id: ${{ needs.terraform.outputs.prod_db_id }}
     secrets: inherit
