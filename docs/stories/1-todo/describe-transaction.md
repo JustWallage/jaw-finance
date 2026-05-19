@@ -1,0 +1,1 @@
+For transactions add the option to explain what it is in natural language and have AI evaluate it based on that.
