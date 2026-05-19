@@ -53,6 +53,7 @@ export function useBankConnection() {
   );
   const importAbort = useRef<AbortController | null>(null);
   const lastRefreshAttempt = useRef<number>(0);
+  const justConnected = useRef(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -61,6 +62,7 @@ export function useBankConnection() {
       window.history.replaceState({}, "", "/");
     }
     if (params.get("connected")) {
+      justConnected.current = true;
       window.history.replaceState({}, "", "/");
     }
     fetchStatus();
@@ -109,14 +111,17 @@ export function useBankConnection() {
   const autoRefreshTriggered = useRef(false);
   useEffect(() => {
     if (autoRefreshTriggered.current) return;
+    if (justConnected.current) return;
     if (connections.length === 0) return;
     const active = connections.filter(
       (c) => new Date(c.valid_until).getTime() > Date.now(),
     );
     if (active.length === 0) return;
 
+    // If any active connection has never been refreshed (NULL), skip auto-refresh
+    if (active.some((c) => !c.last_refreshed_at)) return;
+
     const oldestRefresh = active.reduce<number | null>((oldest, c) => {
-      if (!c.last_refreshed_at) return 0; // NULL = never refreshed = infinitely stale
       const ts = new Date(c.last_refreshed_at + "Z").getTime();
       if (oldest === null) return ts;
       return ts < oldest ? ts : oldest;
