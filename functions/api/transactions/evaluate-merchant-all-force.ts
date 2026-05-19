@@ -21,16 +21,31 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
         counterparty_name: string | null;
       }>();
 
+    // Fetch all patterns ONCE into memory
+    const patterns = await env.DB.prepare(
+      `SELECT pattern, paths FROM global_merchant_patterns`,
+    ).all<{ pattern: string; paths: string }>();
+
+    const CHUNK_SIZE = 20; // Process in Chunks of 20 to protect D1 connections
     let matched = 0;
-    for (const tx of rows.results) {
-      await evaluateMerchantPatterns(
-        env.DB,
-        tx.id,
-        userEmail,
-        tx.remittance_info,
-        tx.counterparty_name,
+
+    for (let i = 0; i < rows.results.length; i += CHUNK_SIZE) {
+      const chunk = rows.results.slice(i, i + CHUNK_SIZE);
+
+      const chunkResults = await Promise.all(
+        chunk.map((tx) =>
+          evaluateMerchantPatterns(
+            env.DB,
+            tx.id,
+            userEmail,
+            tx.remittance_info,
+            tx.counterparty_name,
+            patterns.results,
+          ),
+        ),
       );
-      matched++;
+
+      matched += chunkResults.filter(Boolean).length;
     }
 
     return Response.json({ evaluated: matched });

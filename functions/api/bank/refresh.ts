@@ -19,6 +19,10 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
       );
     }
 
+    const patterns = await env.DB.prepare(
+      `SELECT pattern, paths FROM global_merchant_patterns`,
+    ).all<{ pattern: string; paths: string }>();
+
     let totalSynced = 0;
 
     for (const conn of connections.results) {
@@ -91,6 +95,7 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
                 userEmail,
                 remittanceInfo,
                 counterparty ?? null,
+                patterns.results,
               );
             }
           }
