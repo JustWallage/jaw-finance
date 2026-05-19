@@ -1,9 +1,10 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
-import { Loader2, Send, Sparkles, LinkIcon } from "lucide-react";
+import { Loader2, Send, Sparkles, LinkIcon, AlertTriangle } from "lucide-react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import {
   Drawer,
@@ -92,6 +93,7 @@ export default function HomePage() {
   }
 
   const hasData = connections.length > 0 && activeConnection;
+  const hasExpiredConnection = connections.length > 0 && !activeConnection;
 
   return (
     <motion.div
@@ -125,6 +127,25 @@ export default function HomePage() {
           </form>
         </div>
       </motion.div>
+
+      {hasExpiredConnection && (
+        <Alert variant="destructive" data-testid="expired-connection-alert">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Bank connection expired</AlertTitle>
+          <AlertDescription>
+            Your bank connection has expired. Reconnect to continue syncing transactions.
+          </AlertDescription>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => navigate("/settings")}
+            data-testid="expired-connection-reconnect-button"
+            className="justify-self-start mt-2"
+          >
+            Reconnect
+          </Button>
+        </Alert>
+      )}
 
       {/* Empty state — feature preview */}
       {!hasData && (
