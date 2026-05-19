@@ -5,8 +5,8 @@ on:
     branches-ignore: [main]
 
 concurrency:
-  group: staging-e2e
-  cancel-in-progress: false
+  group: branch-pipeline-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   check-trigger:
@@ -36,9 +36,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: pnpm/action-setup@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -79,20 +77,39 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Compute branch URL
+      - name: Compute branch URL & DB Name
         id: url
         run: |
           BRANCH="${GITHUB_REF_NAME}"
           SANITIZED=$(echo "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/^-*//;s/-*$//' | cut -c1-28)
           echo "branch_url=https://${SANITIZED}.jaw-finance.pages.dev" >> "$GITHUB_OUTPUT"
           echo "sanitized_branch=${SANITIZED}" >> "$GITHUB_OUTPUT"
+          
+          # Create a unique name for the ephemeral DB using the sanitized branch and GitHub run ID
+          echo "db_name=ci-db-${SANITIZED}-${{ github.run_id }}" >> "$GITHUB_OUTPUT"
+
+      - name: Create Ephemeral D1 Database
+        id: create-db
+        run: |
+          DB_NAME="${{ steps.url.outputs.db_name }}"
+          echo "Creating ephemeral database: $DB_NAME"
+          
+          # Run the creation command and capture the output
+          OUTPUT=$(pnpm exec wrangler d1 create "$DB_NAME")
+          
+          # Extract the generated database_id from Wrangler's output using grep and awk
+          DB_ID=$(echo "$OUTPUT" | grep 'database_id' | awk -F'"' '{print $2}')
+          
+          echo "Successfully created DB with ID: $DB_ID"
+          echo "db_id=$DB_ID" >> "$GITHUB_OUTPUT"
 
       - name: Generate wrangler.toml
         run: |
           BRANCH_URL="${{ steps.url.outputs.branch_url }}"
+          # Inject the EPHEMERAL DB ID instead of the Staging DB ID
           sed \
-            -e "s/STAGING_DB_ID/${{ steps.tf.outputs.staging_db_id }}/g" \
-            -e "s/PROD_DB_ID/${{ steps.tf.outputs.staging_db_id }}/g" \
+            -e "s/STAGING_DB_ID/${{ steps.create-db.outputs.db_id }}/g" \
+            -e "s/PROD_DB_ID/${{ steps.create-db.outputs.db_id }}/g" \
             -e "s|https://staging.jaw-finance.pages.dev/mock-enable-banking|${BRANCH_URL}/mock-enable-banking|g" \
             -e "s|https://staging.jaw-finance.pages.dev/api/bank/callback|${BRANCH_URL}/api/bank/callback|g" \
             wrangler.toml.template > wrangler.toml
@@ -101,6 +118,7 @@ jobs:
         run: |
           mkdir -p /tmp/ci-logs
           set -o pipefail
+          # This now runs against the ephemeral DB because we updated wrangler.toml
           pnpm exec wrangler d1 migrations apply DB --remote --env preview 2>&1 | tee /tmp/ci-logs/wrangler-d1-migrations.log
 
       - name: Seed Merchant Patterns
@@ -137,3 +155,9 @@ jobs:
             /tmp/ci-logs/
             /home/runner/.config/.wrangler/logs/
           retention-days: 7
+
+      - name: Teardown Ephemeral D1 Database
+        if: always() 
+        run: |
+          echo "Deleting ephemeral database: ${{ steps.url.outputs.db_name }}"
+          pnpm exec wrangler d1 delete ${{ steps.url.outputs.db_name }} -y
