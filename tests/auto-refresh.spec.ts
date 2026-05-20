@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { connectAndRefresh } from "./test-utils";
 
 const isCi = !!process.env.CI;
 
@@ -17,29 +18,6 @@ test.use({
     await use({ [userEmailHeader]: email });
   },
 });
-
-/** Helper: connect a bank and do first refresh so the user has transactions. */
-async function connectAndRefresh(
-  page: ReturnType<typeof test["info"]> extends never ? never : Parameters<Parameters<typeof test>[1]>[0]["page"],
-  request: Parameters<Parameters<typeof test>[1]>[0]["request"],
-) {
-  await page.goto("/settings");
-  await page.getByTestId("connect-button").click();
-  await page.getByTestId("bank-option-bunq").click();
-  await page.waitForURL("**/mock-enable-banking/consent**");
-  await page.getByTestId("simulate-success").click();
-  await page.waitForURL("**/?connected=true");
-
-  await page.goto("/settings");
-  const refreshBtn = page.getByTestId("refresh-button");
-  await expect(refreshBtn).toBeVisible({ timeout: 5_000 });
-  await Promise.all([
-    page.waitForResponse(
-      (r) => r.url().includes("/api/bank/refresh") && r.status() === 200,
-    ),
-    refreshBtn.click(),
-  ]);
-}
 
 test.describe("Auto-refresh on page load", () => {
   test.beforeEach(async ({ page, context, request }, testInfo) => {
@@ -70,10 +48,7 @@ test.describe("Auto-refresh on page load", () => {
     };
     const connId = statusData.connections[0].id;
 
-    const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000)
-      .toISOString()
-      .replace("T", " ")
-      .slice(0, 19);
+    const threeHoursAgo = Date.now() - 3 * 60 * 60 * 1000;
 
     await request.post("/mock-enable-banking/set-last-refreshed", {
       headers: { [userEmailHeader]: email },

@@ -1,4 +1,5 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
+import { connectAndRefresh } from "./test-utils";
 
 const isCi = !!process.env.CI;
 
@@ -28,31 +29,12 @@ test.beforeEach(async ({ page, context, request }, testInfo) => {
   await request.post("/api/consent", { headers: { [userEmailHeader]: email } });
 });
 
-async function connectAndRefresh(page: Page) {
-  await page.goto("/settings");
-  await page.getByTestId("connect-button").click();
-  await page.getByTestId("bank-option-bunq").click();
-  await page.waitForURL("**/mock-enable-banking/consent**");
-  await page.getByTestId("simulate-success").click();
-  await page.waitForURL("**/?connected=true");
-
-  await page.goto("/settings");
-  const refreshBtn = page.getByTestId("refresh-button");
-  await expect(refreshBtn).toBeVisible({ timeout: 5_000 });
-  await Promise.all([
-    page.waitForResponse(
-      (r) => r.url().includes("/api/bank/refresh") && r.status() === 200,
-    ),
-    refreshBtn.click(),
-  ]);
-}
-
 test.describe("Merchant Dictionary", () => {
   test("ingestion auto-tags matching transactions and sets merchant_db_evaluated", async ({
     page,
     request,
   }) => {
-    await connectAndRefresh(page);
+    await connectAndRefresh(page, request);
 
     // Fetch all transactions via API
     const res = await request.get("/api/bank/transactions");
@@ -109,19 +91,15 @@ test.describe("Merchant Dictionary", () => {
 
   test("settings page shows merchant dictionary controls", async ({ page }) => {
     await page.goto("/settings");
-    await expect(
-      page.getByTestId("merchant-evaluate-pending"),
-    ).toBeVisible();
-    await expect(
-      page.getByTestId("merchant-evaluate-force"),
-    ).toBeVisible();
+    await expect(page.getByTestId("merchant-evaluate-pending")).toBeVisible();
+    await expect(page.getByTestId("merchant-evaluate-force")).toBeVisible();
   });
 
   test("evaluate-pending button processes unmatched transactions", async ({
     page,
     request,
   }) => {
-    await connectAndRefresh(page);
+    await connectAndRefresh(page, request);
 
     // Mark all transactions as not yet merchant-evaluated (simulate stale state)
     await request.post("/api/transactions/evaluate-merchant-all-force");
@@ -141,7 +119,7 @@ test.describe("Merchant Dictionary", () => {
     page,
     request,
   }) => {
-    await connectAndRefresh(page);
+    await connectAndRefresh(page, request);
 
     await page.goto("/settings");
     await page.getByTestId("merchant-evaluate-force").click();

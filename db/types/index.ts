@@ -11,7 +11,7 @@ export interface DBBankConnection {
   nickname: string | null;
   valid_until: string;
   oldest_synced_date: string | null;
-  last_refreshed_at: string | null;
+  last_refreshed_at: number | null;
   user_email: string | null;
   created_at: string;
   updated_at: string;

@@ -1,4 +1,5 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
+import { connectAndRefreshHome } from "./test-utils";
 
 const isCi = !!process.env.CI;
 
@@ -28,33 +29,9 @@ test.beforeEach(async ({ page, context, request }, testInfo) => {
   await request.post("/api/consent", { headers: { [userEmailHeader]: email } });
 });
 
-async function connectAndRefresh(page: Page) {
-  await page.goto("/settings");
-  await page.getByTestId("connect-button").click();
-  await page.getByTestId("bank-option-bunq").click();
-  await page.waitForURL("**/mock-enable-banking/consent**");
-  await page.getByTestId("simulate-success").click();
-  await page.waitForURL("**/?connected=true");
-
-  await page.goto("/settings");
-  const refreshBtn = page.getByTestId("refresh-button");
-  await expect(refreshBtn).toBeVisible({ timeout: 5_000 });
-  await Promise.all([
-    page.waitForResponse(
-      (r) => r.url().includes("/api/bank/refresh") && r.status() === 200,
-    ),
-    refreshBtn.click(),
-  ]);
-
-  await page.goto("/");
-  const feed = page.getByTestId("transactions-table");
-  await expect(feed).toBeVisible({ timeout: 10_000 });
-  return feed;
-}
-
 test.describe("Tag query - backend", () => {
   test("GLOB matching on tag paths", async ({ page, request }) => {
-    await connectAndRefresh(page);
+    await connectAndRefreshHome(page, request);
 
     // Create tags and assign to transactions
     const txRes = await request.get("/api/bank/transactions");
@@ -110,7 +87,7 @@ test.describe("Tag query - backend", () => {
   });
 
   test("OR logic across multiple queries", async ({ page, request }) => {
-    await connectAndRefresh(page);
+    await connectAndRefreshHome(page, request);
 
     const txRes = await request.get("/api/bank/transactions");
     const txData = (await txRes.json()) as {
@@ -163,7 +140,7 @@ test.describe("Tag query - backend", () => {
     page,
     request,
   }) => {
-    await connectAndRefresh(page);
+    await connectAndRefreshHome(page, request);
 
     const txRes = await request.get("/api/bank/transactions");
     const txData = (await txRes.json()) as {
@@ -217,7 +194,7 @@ test.describe("Tag query - backend", () => {
   });
 
   test("aggregation totals are correct", async ({ page, request }) => {
-    await connectAndRefresh(page);
+    await connectAndRefreshHome(page, request);
 
     const txRes = await request.get("/api/bank/transactions");
     const txData = (await txRes.json()) as {
@@ -259,7 +236,7 @@ test.describe("Tag query - backend", () => {
     page,
     request,
   }) => {
-    await connectAndRefresh(page);
+    await connectAndRefreshHome(page, request);
 
     const tagRes = await request.post("/api/tags", {
       data: { name: "rent", path: "housing/rent" },
@@ -288,8 +265,9 @@ test.describe("Tag query - backend", () => {
 test.describe("Tag query - frontend", () => {
   test("search by glob pattern opens results modal with totals", async ({
     page,
+    request,
   }) => {
-    await connectAndRefresh(page);
+    await connectAndRefreshHome(page, request);
 
     // Navigate to trends page
     await page.getByTestId("nav-trends").click();
@@ -334,7 +312,7 @@ test.describe("Tag query - frontend", () => {
     page,
     request,
   }) => {
-    await connectAndRefresh(page);
+    await connectAndRefreshHome(page, request);
 
     // Get a known transaction date to use as filter
     const txRes = await request.get("/api/bank/transactions");

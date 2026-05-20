@@ -6,7 +6,7 @@ interface MockEnv extends EBEnv {
 
 interface SetLastRefreshedBody {
   connectionId: number;
-  timestamp: string | null;
+  timestamp: number | null;
 }
 
 export const onRequestPost: PagesFunction<MockEnv> = async (context) => {

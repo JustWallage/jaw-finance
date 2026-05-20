@@ -118,18 +118,13 @@ export function useBankConnection() {
     );
     if (active.length === 0) return;
 
-    // If any active connection has never been refreshed (NULL), skip auto-refresh
-    if (active.some((c) => !c.last_refreshed_at)) return;
-
     const oldestRefresh = active.reduce<number | null>((oldest, c) => {
-      const ts = new Date(c.last_refreshed_at + "Z").getTime();
-      if (oldest === null) return ts;
-      return ts < oldest ? ts : oldest;
-    }, null);
+      if (!oldest || !c.last_refreshed_at) return null;
+      return c.last_refreshed_at < oldest ? c.last_refreshed_at : oldest;
+    }, Date.now());
 
-    if (oldestRefresh === null) return;
-
-    const isStale = Date.now() - oldestRefresh > TWO_HOURS;
+    const isStale =
+      oldestRefresh === null || Date.now() - oldestRefresh > TWO_HOURS;
     const recentAttempt = Date.now() - lastRefreshAttempt.current < FIVE_MINUTES;
 
     if (isStale && !recentAttempt) {

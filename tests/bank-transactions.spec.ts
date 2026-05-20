@@ -287,6 +287,18 @@ test.describe("Bank connection flow via mock", () => {
     await page.getByTestId("simulate-success").click();
     await page.waitForURL("**/?connected=true");
 
+    // Set last_refreshed_at to now to prevent auto-refresh from firing on page load
+    const statusRes = await request.get("/api/bank/status");
+    const statusData = (await statusRes.json()) as {
+      connections: { id: number }[];
+    };
+    const now = Date.now();
+    for (const conn of statusData.connections) {
+      await request.post("/mock-enable-banking/set-last-refreshed", {
+        data: { connectionId: conn.id, timestamp: now },
+      });
+    }
+
     // Navigate to settings to verify connection is active
     await page.goto("/settings");
 

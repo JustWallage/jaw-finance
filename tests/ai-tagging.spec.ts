@@ -1,4 +1,5 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
+import { connectAndRefreshHome } from "./test-utils";
 
 const isCi = !!process.env.CI;
 
@@ -35,36 +36,12 @@ test.beforeEach(async ({ page, context, request }, testInfo) => {
   await request.post("/api/consent", { headers: { [userEmailHeader]: email } });
 });
 
-async function connectAndRefresh(page: Page) {
-  await page.goto("/settings");
-  await page.getByTestId("connect-button").click();
-  await page.getByTestId("bank-option-bunq").click();
-  await page.waitForURL("**/mock-enable-banking/consent**");
-  await page.getByTestId("simulate-success").click();
-  await page.waitForURL("**/?connected=true");
-
-  await page.goto("/settings");
-  const refreshBtn = page.getByTestId("refresh-button");
-  await expect(refreshBtn).toBeVisible({ timeout: 5_000 });
-  await Promise.all([
-    page.waitForResponse(
-      (r) => r.url().includes("/api/bank/refresh") && r.status() === 200,
-    ),
-    refreshBtn.click(),
-  ]);
-
-  await page.goto("/");
-  const feed = page.getByTestId("transactions-table");
-  await expect(feed).toBeVisible({ timeout: 10_000 });
-  return feed;
-}
-
 test.describe("AI auto-tagging", () => {
   test("AI Evaluate button assigns mocked tags, marks new ones unconfirmed, and sets ai_evaluated", async ({
     page,
     request,
   }) => {
-    const table = await connectAndRefresh(page);
+    const table = await connectAndRefreshHome(page, request);
 
     // Open first transaction modal; capture its id.
     const firstRow = table.locator("[data-testid^='tx-row-']").first();
@@ -126,8 +103,9 @@ test.describe("AI auto-tagging", () => {
 
   test("Tags page: unconfirmed appears at top, confirming moves it down", async ({
     page,
+    request,
   }) => {
-    const table = await connectAndRefresh(page);
+    const table = await connectAndRefreshHome(page, request);
 
     // Trigger AI Evaluate to create an unconfirmed tag
     await table.locator("[data-testid^='tx-row-']").first().click();
@@ -176,7 +154,7 @@ test.describe("AI auto-tagging", () => {
     page,
     request,
   }) => {
-    const table = await connectAndRefresh(page);
+    const table = await connectAndRefreshHome(page, request);
     await table.locator("[data-testid^='tx-row-']").first().click();
     await page
       .getByTestId("transaction-dialog")
@@ -222,7 +200,7 @@ test.describe("AI auto-tagging", () => {
     page,
     request,
   }) => {
-    const table = await connectAndRefresh(page);
+    const table = await connectAndRefreshHome(page, request);
 
     // Click the first row, capture its tx id from the data-testid attribute
     const firstRow = table.locator("[data-testid^='tx-row-']").first();
@@ -280,7 +258,7 @@ test.describe("AI auto-tagging", () => {
     page,
     request,
   }) => {
-    const table = await connectAndRefresh(page);
+    const table = await connectAndRefreshHome(page, request);
 
     // Switch to All Accounts so the current-account transactions are visible
     // regardless of which account the switcher defaults to.
@@ -345,7 +323,7 @@ test.describe("AI auto-tagging", () => {
     request,
   }) => {
     // Connect and refresh to populate transactions.
-    await connectAndRefresh(page);
+    await connectAndRefreshHome(page, request);
 
     // Confirm all transactions start as pending.
     const beforeCount = (
