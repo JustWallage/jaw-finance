@@ -1,6 +1,8 @@
 import { defineConfig } from "@playwright/test";
 
 const isCi = !!process.env.CI;
+const ciBaseUrl = process.env.BASE_URL;
+if (isCi && !ciBaseUrl) throw new Error("BASE_URL env must be set in CI");
 
 const extraHTTPHeaders: Record<string, string> = isCi
   ? { "X-Test-User-Email": "test@jaw-finance.local" }
@@ -14,9 +16,7 @@ export default defineConfig({
   timeout: 360_000,
   reporter: "html",
   use: {
-    baseURL: isCi
-      ? process.env.BASE_URL || "https://staging.jaw-finance.pages.dev"
-      : "http://localhost:8788",
+    baseURL: isCi ? ciBaseUrl : "http://localhost:8788",
     extraHTTPHeaders,
     screenshot: "only-on-failure",
     trace: "on-first-retry" /* https://playwright.dev/docs/trace-viewer */,
