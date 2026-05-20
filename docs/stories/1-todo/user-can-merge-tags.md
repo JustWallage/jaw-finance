@@ -1,0 +1,1 @@
+All child tags become child of the chosen parent.

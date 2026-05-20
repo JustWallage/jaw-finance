@@ -1,70 +1,14 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
-const isCi = !!process.env.CI;
-
-const userEmailHeader = isCi
-  ? "X-Test-User-Email"
-  : "Cf-Access-Authenticated-User-Email";
-
-/** Each test gets its own user email so tag state can't leak between
- *  parallel tests (within this file or across files). */
-test.use({
-  extraHTTPHeaders: async ({}, use, testInfo) => {
-    const slug = testInfo.title
-      .replace(/[^a-z0-9]+/gi, "-")
-      .toLowerCase()
-      .slice(0, 30);
-    const email = `${slug}-${testInfo.workerIndex}-${Date.now()}@jaw-finance.local`;
-    // stash it on testInfo so beforeEach can use it for page init script
-    (testInfo as unknown as { _userEmail: string })._userEmail = email;
-    await use({
-      [userEmailHeader]: email,
-      "X-Test-Mock-AI": "1",
-    });
-  },
-});
-
-test.beforeEach(async ({ page, context, request }, testInfo) => {
-  const email = (testInfo as unknown as { _userEmail: string })._userEmail;
-  // Seed the browser so React's authHeaders() uses our unique user.
-  await context.addInitScript((e: string) => {
-    (window as { __TEST_USER_EMAIL__?: string }).__TEST_USER_EMAIL__ = e;
-  }, email);
-  void page;
-  await request.post("/mock-enable-banking/reset");
-  await request.post("/api/consent", { headers: { [userEmailHeader]: email } });
-});
-
-async function connectAndRefresh(page: Page) {
-  await page.goto("/settings");
-  await page.getByTestId("connect-button").click();
-  await page.getByTestId("bank-option-bunq").click();
-  await page.waitForURL("**/mock-enable-banking/consent**");
-  await page.getByTestId("simulate-success").click();
-  await page.waitForURL("**/?connected=true");
-
-  await page.goto("/settings");
-  const refreshBtn = page.getByTestId("refresh-button");
-  await expect(refreshBtn).toBeVisible({ timeout: 5_000 });
-  await Promise.all([
-    page.waitForResponse(
-      (r) => r.url().includes("/api/bank/refresh") && r.status() === 200,
-    ),
-    refreshBtn.click(),
-  ]);
-
-  await page.goto("/");
-  const feed = page.getByTestId("transactions-table");
-  await expect(feed).toBeVisible({ timeout: 10_000 });
-  return feed;
-}
+test.use({ mockAI: true });
 
 test.describe("AI auto-tagging", () => {
   test("AI Evaluate button assigns mocked tags, marks new ones unconfirmed, and sets ai_evaluated", async ({
     page,
     request,
+    connectAndRefreshHome,
   }) => {
-    const table = await connectAndRefresh(page);
+    const table = await connectAndRefreshHome();
 
     // Open first transaction modal; capture its id.
     const firstRow = table.locator("[data-testid^='tx-row-']").first();
@@ -126,8 +70,9 @@ test.describe("AI auto-tagging", () => {
 
   test("Tags page: unconfirmed appears at top, confirming moves it down", async ({
     page,
+    connectAndRefreshHome,
   }) => {
-    const table = await connectAndRefresh(page);
+    const table = await connectAndRefreshHome();
 
     // Trigger AI Evaluate to create an unconfirmed tag
     await table.locator("[data-testid^='tx-row-']").first().click();
@@ -175,8 +120,9 @@ test.describe("AI auto-tagging", () => {
   test("Editing an unconfirmed tag's name keeps it unconfirmed and renames its path", async ({
     page,
     request,
+    connectAndRefreshHome,
   }) => {
-    const table = await connectAndRefresh(page);
+    const table = await connectAndRefreshHome();
     await table.locator("[data-testid^='tx-row-']").first().click();
     await page
       .getByTestId("transaction-dialog")
@@ -221,8 +167,9 @@ test.describe("AI auto-tagging", () => {
   test("Rejecting a tag unlinks it from transactions and shows it in Rejected modal", async ({
     page,
     request,
+    connectAndRefreshHome,
   }) => {
-    const table = await connectAndRefresh(page);
+    const table = await connectAndRefreshHome();
 
     // Click the first row, capture its tx id from the data-testid attribute
     const firstRow = table.locator("[data-testid^='tx-row-']").first();
@@ -279,8 +226,9 @@ test.describe("AI auto-tagging", () => {
   test("Historical RAG: prompt includes tag frequencies and filters out <=10% tags", async ({
     page,
     request,
+    connectAndRefreshHome,
   }) => {
-    const table = await connectAndRefresh(page);
+    const table = await connectAndRefreshHome();
 
     // Switch to All Accounts so the current-account transactions are visible
     // regardless of which account the switcher defaults to.
@@ -343,9 +291,10 @@ test.describe("AI auto-tagging", () => {
   test("Batch evaluate: processes transactions, assigns tags, and sets ai_evaluated epoch timestamp", async ({
     page,
     request,
+    connectAndRefreshHome,
   }) => {
     // Connect and refresh to populate transactions.
-    await connectAndRefresh(page);
+    await connectAndRefreshHome();
 
     // Confirm all transactions start as pending.
     const beforeCount = (

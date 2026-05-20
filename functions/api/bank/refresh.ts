@@ -105,6 +105,13 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
       } while (continuationKey);
     }
 
+    // Update last_refreshed_at on all refreshed connections
+    await env.DB.prepare(
+      "UPDATE bank_connections SET last_refreshed_at = ? WHERE user_email = ? AND valid_until > datetime('now')",
+    )
+      .bind(Date.now(), userEmail)
+      .run();
+
     return Response.json({ synced: totalSynced });
   } catch (err) {
     return Response.json(

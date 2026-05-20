@@ -1,58 +1,11 @@
-import { test, expect, type Page } from "@playwright/test";
-
-const isCi = !!process.env.CI;
-
-const userEmailHeader = isCi
-  ? "X-Test-User-Email"
-  : "Cf-Access-Authenticated-User-Email";
-
-test.use({
-  extraHTTPHeaders: async ({}, use, testInfo) => {
-    const slug = testInfo.title
-      .replace(/[^a-z0-9]+/gi, "-")
-      .toLowerCase()
-      .slice(0, 30);
-    const email = `${slug}-${testInfo.workerIndex}-${Date.now()}@jaw-finance.local`;
-    (testInfo as unknown as { _userEmail: string })._userEmail = email;
-    await use({ [userEmailHeader]: email });
-  },
-});
-
-test.beforeEach(async ({ page, context, request }, testInfo) => {
-  const email = (testInfo as unknown as { _userEmail: string })._userEmail;
-  await context.addInitScript((e: string) => {
-    (window as { __TEST_USER_EMAIL__?: string }).__TEST_USER_EMAIL__ = e;
-  }, email);
-  void page;
-  await request.post("/mock-enable-banking/reset");
-  await request.post("/api/consent", { headers: { [userEmailHeader]: email } });
-});
-
-async function connectAndRefresh(page: Page) {
-  await page.goto("/settings");
-  await page.getByTestId("connect-button").click();
-  await page.getByTestId("bank-option-bunq").click();
-  await page.waitForURL("**/mock-enable-banking/consent**");
-  await page.getByTestId("simulate-success").click();
-  await page.waitForURL("**/?connected=true");
-
-  await page.goto("/settings");
-  const refreshBtn = page.getByTestId("refresh-button");
-  await expect(refreshBtn).toBeVisible({ timeout: 5_000 });
-  await Promise.all([
-    page.waitForResponse(
-      (r) => r.url().includes("/api/bank/refresh") && r.status() === 200,
-    ),
-    refreshBtn.click(),
-  ]);
-}
+import { test, expect } from "./fixtures";
 
 test.describe("Merchant Dictionary", () => {
   test("ingestion auto-tags matching transactions and sets merchant_db_evaluated", async ({
-    page,
     request,
+    connectAndRefresh,
   }) => {
-    await connectAndRefresh(page);
+    await connectAndRefresh();
 
     // Fetch all transactions via API
     const res = await request.get("/api/bank/transactions");
@@ -109,19 +62,16 @@ test.describe("Merchant Dictionary", () => {
 
   test("settings page shows merchant dictionary controls", async ({ page }) => {
     await page.goto("/settings");
-    await expect(
-      page.getByTestId("merchant-evaluate-pending"),
-    ).toBeVisible();
-    await expect(
-      page.getByTestId("merchant-evaluate-force"),
-    ).toBeVisible();
+    await expect(page.getByTestId("merchant-evaluate-pending")).toBeVisible();
+    await expect(page.getByTestId("merchant-evaluate-force")).toBeVisible();
   });
 
   test("evaluate-pending button processes unmatched transactions", async ({
     page,
     request,
+    connectAndRefresh,
   }) => {
-    await connectAndRefresh(page);
+    await connectAndRefresh();
 
     // Mark all transactions as not yet merchant-evaluated (simulate stale state)
     await request.post("/api/transactions/evaluate-merchant-all-force");
@@ -139,9 +89,9 @@ test.describe("Merchant Dictionary", () => {
 
   test("re-evaluate all button processes all transactions", async ({
     page,
-    request,
+    connectAndRefresh,
   }) => {
-    await connectAndRefresh(page);
+    await connectAndRefresh();
 
     await page.goto("/settings");
     await page.getByTestId("merchant-evaluate-force").click();

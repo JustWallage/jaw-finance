@@ -1,64 +1,7 @@
-import {
-  test,
-  expect,
-  type Page,
-  type APIRequestContext,
-} from "@playwright/test";
+import { test, expect } from "./fixtures";
+import type { APIRequestContext } from "@playwright/test";
 
-const isCi = !!process.env.CI;
-
-const userEmailHeader = isCi
-  ? "X-Test-User-Email"
-  : "Cf-Access-Authenticated-User-Email";
-
-test.use({
-  extraHTTPHeaders: async ({}, use, testInfo) => {
-    const slug = testInfo.title
-      .replace(/[^a-z0-9]+/gi, "-")
-      .toLowerCase()
-      .slice(0, 30);
-    const email = `${slug}-${testInfo.workerIndex}-${Date.now()}@jaw-finance.local`;
-    (testInfo as unknown as { _userEmail: string })._userEmail = email;
-    await use({
-      [userEmailHeader]: email,
-      "X-Test-Mock-AI": "1",
-    });
-  },
-});
-
-test.beforeEach(async ({ page, context, request }, testInfo) => {
-  const email = (testInfo as unknown as { _userEmail: string })._userEmail;
-  await context.addInitScript((e: string) => {
-    (window as { __TEST_USER_EMAIL__?: string }).__TEST_USER_EMAIL__ = e;
-  }, email);
-  void page;
-  await request.post("/mock-enable-banking/reset");
-  await request.post("/api/consent", { headers: { [userEmailHeader]: email } });
-});
-
-async function connectAndRefresh(page: Page) {
-  await page.goto("/settings");
-  await page.getByTestId("connect-button").click();
-  await page.getByTestId("bank-option-bunq").click();
-  await page.waitForURL("**/mock-enable-banking/consent**");
-  await page.getByTestId("simulate-success").click();
-  await page.waitForURL("**/?connected=true");
-
-  await page.goto("/settings");
-  const refreshBtn = page.getByTestId("refresh-button");
-  await expect(refreshBtn).toBeVisible({ timeout: 5_000 });
-  await Promise.all([
-    page.waitForResponse(
-      (r) => r.url().includes("/api/bank/refresh") && r.status() === 200,
-    ),
-    refreshBtn.click(),
-  ]);
-
-  await page.goto("/");
-  const feed = page.getByTestId("transactions-table");
-  await expect(feed).toBeVisible({ timeout: 10_000 });
-  return feed;
-}
+test.use({ mockAI: true });
 
 async function seedFoodTag(request: APIRequestContext) {
   // Create a "food" tag and assign to first transaction so the mock NL query returns results
@@ -79,13 +22,16 @@ async function seedFoodTag(request: APIRequestContext) {
 }
 
 test.describe("Natural language chat", () => {
-  test("chat input is visible after connecting bank", async ({ page }) => {
+  test("chat input is visible after connecting bank", async ({
+    page,
+    connectAndRefreshHome,
+  }) => {
     await page.goto("/");
     // Chat should be visible but disabled without a connection
     await expect(page.getByTestId("chat-form")).toBeVisible();
     await expect(page.getByTestId("chat-input")).toBeDisabled();
 
-    await connectAndRefresh(page);
+    await connectAndRefreshHome();
     await expect(page.getByTestId("chat-form")).toBeVisible();
     await expect(page.getByTestId("chat-input")).toBeEnabled();
     await expect(page.getByTestId("chat-submit")).toBeVisible();
@@ -94,8 +40,9 @@ test.describe("Natural language chat", () => {
   test("submitting a question shows summary card with results", async ({
     page,
     request,
+    connectAndRefreshHome,
   }) => {
-    await connectAndRefresh(page);
+    await connectAndRefreshHome();
     await seedFoodTag(request);
 
     // Type question and submit (navigates to /chat)
@@ -122,8 +69,9 @@ test.describe("Natural language chat", () => {
   test("clicking 'View all X transactions' expands transaction list", async ({
     page,
     request,
+    connectAndRefreshHome,
   }) => {
-    await connectAndRefresh(page);
+    await connectAndRefreshHome();
     await seedFoodTag(request);
 
     await page.getByTestId("chat-input").fill("Show my food transactions");
@@ -157,8 +105,11 @@ test.describe("Natural language chat", () => {
     await expect(card.getByTestId("chat-transactions-table")).not.toBeVisible();
   });
 
-  test("empty question cannot be submitted", async ({ page }) => {
-    await connectAndRefresh(page);
+  test("empty question cannot be submitted", async ({
+    page,
+    connectAndRefreshHome,
+  }) => {
+    await connectAndRefreshHome();
 
     const submitBtn = page.getByTestId("chat-submit");
     await expect(submitBtn).toBeDisabled();
@@ -169,10 +120,10 @@ test.describe("Natural language chat", () => {
   });
 
   test("chat endpoint returns structured data via API", async ({
-    page,
     request,
+    connectAndRefreshHome,
   }) => {
-    await connectAndRefresh(page);
+    await connectAndRefreshHome();
     await seedFoodTag(request);
 
     const res = await request.post("/api/chat", {
@@ -209,8 +160,11 @@ test.describe("Natural language chat", () => {
     }
   });
 
-  test("chat endpoint rejects empty question", async ({ page, request }) => {
-    await connectAndRefresh(page);
+  test("chat endpoint rejects empty question", async ({
+    request,
+    connectAndRefreshHome,
+  }) => {
+    await connectAndRefreshHome();
 
     const res = await request.post("/api/chat", {
       data: { question: "" },

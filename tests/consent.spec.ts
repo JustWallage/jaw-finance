@@ -1,40 +1,16 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, userEmailHeader } from "./fixtures";
 
-const isCi = !!process.env.CI;
-
-const userEmailHeader = isCi
-  ? "X-Test-User-Email"
-  : "Cf-Access-Authenticated-User-Email";
-
-test.use({
-  extraHTTPHeaders: async ({}, use, testInfo) => {
-    const slug = testInfo.title
-      .replace(/[^a-z0-9]+/gi, "-")
-      .toLowerCase()
-      .slice(0, 30);
-    const email = `consent-${slug}-${testInfo.workerIndex}-${Date.now()}@jaw-finance.local`;
-    (testInfo as unknown as { _userEmail: string })._userEmail = email;
-    await use({ [userEmailHeader]: email });
-  },
-});
+test.use({ autoConsent: false });
 
 test.describe("Consent flow", () => {
-  test.beforeEach(async ({ context }, testInfo) => {
-    const email = (testInfo as unknown as { _userEmail: string })._userEmail;
-    await context.addInitScript((e: string) => {
-      (window as { __TEST_USER_EMAIL__?: string }).__TEST_USER_EMAIL__ = e;
-    }, email);
-  });
-
   test("new user sees consent modal and API returns 403 before accepting", async ({
     page,
     request,
-  }, testInfo) => {
-    const email = (testInfo as unknown as { _userEmail: string })._userEmail;
-
+    userEmail,
+  }) => {
     // API returns 403 for unconsented user
     const res = await request.get("/api/tags", {
-      headers: { [userEmailHeader]: email },
+      headers: { [userEmailHeader]: userEmail },
     });
     expect(res.status()).toBe(403);
 
@@ -56,9 +32,8 @@ test.describe("Consent flow", () => {
   test("user accepts consent, modal disappears, API returns 200", async ({
     page,
     request,
-  }, testInfo) => {
-    const email = (testInfo as unknown as { _userEmail: string })._userEmail;
-
+    userEmail,
+  }) => {
     await page.goto("/");
     const modal = page.getByTestId("consent-modal");
     await expect(modal).toBeVisible({ timeout: 10_000 });
@@ -69,16 +44,16 @@ test.describe("Consent flow", () => {
 
     // API now works
     const res = await request.get("/api/tags", {
-      headers: { [userEmailHeader]: email },
+      headers: { [userEmailHeader]: userEmail },
     });
     expect(res.status()).toBe(200);
   });
 
   test("consent GET endpoint returns correct status", async ({
     request,
-  }, testInfo) => {
-    const email = (testInfo as unknown as { _userEmail: string })._userEmail;
-    const headers = { [userEmailHeader]: email };
+    userEmail,
+  }) => {
+    const headers = { [userEmailHeader]: userEmail };
 
     // Before consent
     const before = await request.get("/api/consent", { headers });
