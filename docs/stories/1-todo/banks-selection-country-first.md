@@ -1,0 +1,1 @@
+When selecting a bank in the connect modal, make the user first select their country.

@@ -11,10 +11,11 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: isCi,
   retries: isCi ? 2 : 0,
+  timeout: 360_000,
   reporter: "html",
   use: {
     baseURL: isCi
-      ? (process.env.BASE_URL || "https://staging.jaw-finance.pages.dev")
+      ? process.env.BASE_URL || "https://staging.jaw-finance.pages.dev"
       : "http://localhost:8788",
     extraHTTPHeaders,
     screenshot: "only-on-failure",

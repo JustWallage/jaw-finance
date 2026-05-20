@@ -145,6 +145,46 @@ test.describe("Bank connection flow via mock", () => {
     );
   });
 
+  test("homepage shows expired connection warning and reconnects to settings", async ({
+    page,
+  }) => {
+    const expiredDate = new Date(
+      Date.now() - 24 * 60 * 60 * 1000,
+    ).toISOString();
+
+    await page.route("**/api/bank/status", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          connections: [
+            {
+              id: 1,
+              account_uid: "acc-expired",
+              aspsp_name: "Mock ASPSP",
+              aspsp_country: "NL",
+              iban: "NL00MOCK0123456789",
+              valid_until: expiredDate,
+            },
+          ],
+        }),
+      }),
+    );
+
+    await page.goto("/");
+
+    const expiredAlert = page.getByTestId("expired-connection-alert");
+    await expect(expiredAlert).toBeVisible({ timeout: 5_000 });
+    await expect(expiredAlert).toContainText("Bank connection expired");
+
+    await page.getByTestId("expired-connection-reconnect-button").click();
+    await page.waitForURL("**/settings");
+
+    const reconnectButton = page.getByTestId("reconnect-button");
+    await expect(reconnectButton).toBeVisible();
+    await expect(reconnectButton).toHaveClass(/bg-destructive\/10/);
+  });
+
   test("duplicate transactions are not inserted on reconnect", async ({
     page,
   }) => {

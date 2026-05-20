@@ -1,1 +1,0 @@
-A page for people that are not logged in that shows what this app is, what it can do for you. Other information about this app.

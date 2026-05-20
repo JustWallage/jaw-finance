@@ -1,0 +1,96 @@
+name: Ephemeral E2E
+
+on:
+  workflow_call:
+
+jobs:
+  ephemeral-e2e:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: build
+          path: dist
+
+      - name: Compute branch URL & DB name
+        id: env
+        run: |
+          # Use a unique branch name per run to avoid colliding with production or other runs
+          SANITIZED="e2e-${{ github.run_id }}"
+          echo "branch_url=https://${SANITIZED}.jaw-finance.pages.dev" >> "$GITHUB_OUTPUT"
+          echo "sanitized_branch=${SANITIZED}" >> "$GITHUB_OUTPUT"
+          echo "db_name=ci-db-${SANITIZED}" >> "$GITHUB_OUTPUT"
+
+      - name: Create Ephemeral D1 Database
+        id: create-db
+        run: |
+          DB_NAME="${{ steps.env.outputs.db_name }}"
+          echo "Creating ephemeral database: $DB_NAME"
+          OUTPUT=$(pnpm exec wrangler d1 create "$DB_NAME")
+          DB_ID=$(echo "$OUTPUT" | grep 'database_id' | awk -F'"' '{print $2}')
+          echo "Successfully created DB with ID: $DB_ID"
+          echo "db_id=$DB_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Generate wrangler.toml
+        run: |
+          BRANCH_URL="${{ steps.env.outputs.branch_url }}"
+          sed \
+            -e "s/STAGING_DB_ID/${{ steps.create-db.outputs.db_id }}/g" \
+            -e "s/PROD_DB_ID/${{ steps.create-db.outputs.db_id }}/g" \
+            -e "s|https://staging.jaw-finance.pages.dev/mock-enable-banking|${BRANCH_URL}/mock-enable-banking|g" \
+            -e "s|https://staging.jaw-finance.pages.dev/api/bank/callback|${BRANCH_URL}/api/bank/callback|g" \
+            wrangler.toml.template > wrangler.toml
+
+      - name: Run DB Migrations
+        run: pnpm exec wrangler d1 migrations apply DB --remote --env preview
+
+      - name: Seed Merchant Patterns
+        run: node scripts/seed-merchant-patterns.mjs remote --env preview
+
+      - name: Deploy to branch
+        run: pnpm exec wrangler pages deploy dist --project-name jaw-finance --branch ${{ steps.env.outputs.sanitized_branch }} --commit-dirty=true
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        timeout-minutes: 15
+        env:
+          BASE_URL: ${{ steps.env.outputs.branch_url }}
+          CI: "true"
+          DEBUG: "pw:api"
+        run: pnpm exec playwright test --reporter=list
+
+      - name: Upload Playwright Report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+      - name: Teardown Ephemeral D1 Database
+        if: always()
+        run: |
+          echo "Deleting ephemeral database: ${{ steps.env.outputs.db_name }}"
+          pnpm exec wrangler d1 delete ${{ steps.env.outputs.db_name }} -y
