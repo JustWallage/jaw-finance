@@ -1,47 +1,17 @@
-import { test, expect } from "@playwright/test";
-import { connectAndRefresh } from "./test-utils";
-
-const isCi = !!process.env.CI;
-
-const userEmailHeader = isCi
-  ? "X-Test-User-Email"
-  : "Cf-Access-Authenticated-User-Email";
-
-test.use({
-  extraHTTPHeaders: async ({}, use, testInfo) => {
-    const slug = testInfo.title
-      .replace(/[^a-z0-9]+/gi, "-")
-      .toLowerCase()
-      .slice(0, 30);
-    const email = `${slug}-${testInfo.workerIndex}-${Date.now()}@jaw-finance.local`;
-    (testInfo as unknown as { _userEmail: string })._userEmail = email;
-    await use({ [userEmailHeader]: email });
-  },
-});
+import { test, expect, userEmailHeader } from "./fixtures";
 
 test.describe("Auto-refresh on page load", () => {
-  test.beforeEach(async ({ page, context, request }, testInfo) => {
-    const email = (testInfo as unknown as { _userEmail: string })._userEmail;
-    await context.addInitScript((e: string) => {
-      (window as { __TEST_USER_EMAIL__?: string }).__TEST_USER_EMAIL__ = e;
-    }, email);
-    void page;
-    await request.post("/mock-enable-banking/reset");
-    await request.post("/api/consent", {
-      headers: { [userEmailHeader]: email },
-    });
-  });
-
   test("auto-refresh fires when last_refreshed_at is stale (>2h)", async ({
     page,
     request,
-  }, testInfo) => {
-    const email = (testInfo as unknown as { _userEmail: string })._userEmail;
-    await connectAndRefresh(page, request);
+    userEmail,
+    connectAndRefresh,
+  }) => {
+    await connectAndRefresh();
 
     // Set last_refreshed_at to 3 hours ago to make it stale
     const statusRes = await request.get("/api/bank/status", {
-      headers: { [userEmailHeader]: email },
+      headers: { [userEmailHeader]: userEmail },
     });
     const statusData = (await statusRes.json()) as {
       connections: { id: number }[];
@@ -51,7 +21,7 @@ test.describe("Auto-refresh on page load", () => {
     const threeHoursAgo = Date.now() - 3 * 60 * 60 * 1000;
 
     await request.post("/mock-enable-banking/set-last-refreshed", {
-      headers: { [userEmailHeader]: email },
+      headers: { [userEmailHeader]: userEmail },
       data: { connectionId: connId, timestamp: threeHoursAgo },
     });
 
@@ -70,9 +40,9 @@ test.describe("Auto-refresh on page load", () => {
 
   test("no auto-refresh when last_refreshed_at is fresh (≤2h)", async ({
     page,
-    request,
+    connectAndRefresh,
   }) => {
-    await connectAndRefresh(page, request);
+    await connectAndRefresh();
 
     // After connectAndRefresh, last_refreshed_at is now (fresh)
     // Navigate to homepage — NO auto-refresh should fire
@@ -94,9 +64,9 @@ test.describe("Auto-refresh on page load", () => {
 
   test("manual refresh button always works regardless of staleness", async ({
     page,
-    request,
+    connectAndRefresh,
   }) => {
-    await connectAndRefresh(page, request);
+    await connectAndRefresh();
 
     // Navigate to homepage (fresh, no auto-refresh)
     await page.goto("/");

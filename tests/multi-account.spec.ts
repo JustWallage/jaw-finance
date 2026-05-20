@@ -1,37 +1,6 @@
-import { test, expect } from "@playwright/test";
-import { connectAndRefreshHome } from "./test-utils";
-
-const isCi = !!process.env.CI;
-
-const userEmailHeader = isCi
-  ? "X-Test-User-Email"
-  : "Cf-Access-Authenticated-User-Email";
-
-test.use({
-  extraHTTPHeaders: async ({}, use, testInfo) => {
-    const slug = testInfo.title
-      .replace(/[^a-z0-9]+/gi, "-")
-      .toLowerCase()
-      .slice(0, 30);
-    const email = `${slug}-${testInfo.workerIndex}-${Date.now()}@jaw-finance.local`;
-    (testInfo as unknown as { _userEmail: string })._userEmail = email;
-    await use({ [userEmailHeader]: email });
-  },
-});
+import { test, expect } from "./fixtures";
 
 test.describe("Multi-account support", () => {
-  test.beforeEach(async ({ page, context, request }, testInfo) => {
-    const email = (testInfo as unknown as { _userEmail: string })._userEmail;
-    await context.addInitScript((e: string) => {
-      (window as { __TEST_USER_EMAIL__?: string }).__TEST_USER_EMAIL__ = e;
-    }, email);
-    void page;
-    await request.post("/mock-enable-banking/reset");
-    await request.post("/api/consent", {
-      headers: { [userEmailHeader]: email },
-    });
-  });
-
   test("mock API returns multiple accounts after connection", async ({
     page,
     request,
@@ -52,9 +21,9 @@ test.describe("Multi-account support", () => {
 
   test("account switcher defaults to first account on fresh load", async ({
     page,
-    request,
+    connectAndRefreshHome,
   }) => {
-    await connectAndRefreshHome(page, request);
+    await connectAndRefreshHome();
 
     const switcher = page.getByTestId("account-switcher");
     await expect(switcher).toBeVisible();
@@ -64,9 +33,9 @@ test.describe("Multi-account support", () => {
 
   test("account switcher displays IBAN and falls back to account_uid", async ({
     page,
-    request,
+    connectAndRefreshHome,
   }) => {
-    await connectAndRefreshHome(page, request);
+    await connectAndRefreshHome();
 
     // Open the account switcher
     const switcher = page.getByTestId("account-switcher");
@@ -92,9 +61,9 @@ test.describe("Multi-account support", () => {
 
   test("selecting an account filters the transaction list", async ({
     page,
-    request,
+    connectAndRefreshHome,
   }) => {
-    await connectAndRefreshHome(page, request);
+    await connectAndRefreshHome();
 
     const table = page.getByTestId("transactions-table");
 
@@ -123,9 +92,9 @@ test.describe("Multi-account support", () => {
 
   test("selecting All Accounts shows all transactions", async ({
     page,
-    request,
+    connectAndRefreshHome,
   }) => {
-    await connectAndRefreshHome(page, request);
+    await connectAndRefreshHome();
 
     const table = page.getByTestId("transactions-table");
 
@@ -151,9 +120,9 @@ test.describe("Multi-account support", () => {
 
   test("can set a nickname and switcher shows it instead of IBAN", async ({
     page,
-    request,
+    connectAndRefreshHome,
   }) => {
-    await connectAndRefreshHome(page, request);
+    await connectAndRefreshHome();
 
     // Navigate to settings to edit nicknames
     await page.getByTestId("nav-settings").click();
@@ -181,9 +150,9 @@ test.describe("Multi-account support", () => {
 
   test("clearing a nickname reverts switcher to IBAN", async ({
     page,
-    request,
+    connectAndRefreshHome,
   }) => {
-    await connectAndRefreshHome(page, request);
+    await connectAndRefreshHome();
 
     const switcher = page.getByTestId("account-switcher");
 
@@ -208,9 +177,9 @@ test.describe("Multi-account support", () => {
 
   test("refreshing page preserves selected account via local storage", async ({
     page,
-    request,
+    connectAndRefreshHome,
   }) => {
-    await connectAndRefreshHome(page, request);
+    await connectAndRefreshHome();
 
     const table = page.getByTestId("transactions-table");
 

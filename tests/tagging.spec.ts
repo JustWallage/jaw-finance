@@ -1,64 +1,11 @@
-import { test, expect, Page } from "@playwright/test";
-
-const isCi = !!process.env.CI;
-
-const userEmailHeader = isCi
-  ? "X-Test-User-Email"
-  : "Cf-Access-Authenticated-User-Email";
-
-test.use({
-  extraHTTPHeaders: async ({}, use, testInfo) => {
-    const slug = testInfo.title
-      .replace(/[^a-z0-9]+/gi, "-")
-      .toLowerCase()
-      .slice(0, 30);
-    const email = `${slug}-${testInfo.workerIndex}-${Date.now()}@jaw-finance.local`;
-    (testInfo as unknown as { _userEmail: string })._userEmail = email;
-    await use({ [userEmailHeader]: email });
-  },
-});
-
-async function connectAndRefresh(page: Page) {
-  await page.goto("/settings");
-  await page.getByTestId("connect-button").click();
-  await page.getByTestId("bank-option-bunq").click();
-  await page.waitForURL("**/mock-enable-banking/consent**");
-  await page.getByTestId("simulate-success").click();
-  await page.waitForURL("**/?connected=true");
-
-  await page.goto("/settings");
-  const refreshBtn = page.getByTestId("refresh-button");
-  await expect(refreshBtn).toBeVisible({ timeout: 5_000 });
-  await Promise.all([
-    page.waitForResponse(
-      (r) => r.url().includes("/api/bank/refresh") && r.status() === 200,
-    ),
-    refreshBtn.click(),
-  ]);
-
-  await page.goto("/");
-  const feed = page.getByTestId("transactions-table");
-  await expect(feed).toBeVisible({ timeout: 10_000 });
-  return feed;
-}
+import { test, expect } from "./fixtures";
 
 test.describe("Transaction tagging", () => {
-  test.beforeEach(async ({ page, context, request }, testInfo) => {
-    const email = (testInfo as unknown as { _userEmail: string })._userEmail;
-    await context.addInitScript((e: string) => {
-      (window as { __TEST_USER_EMAIL__?: string }).__TEST_USER_EMAIL__ = e;
-    }, email);
-    void page;
-    await request.post("/mock-enable-banking/reset");
-    await request.post("/api/consent", {
-      headers: { [userEmailHeader]: email },
-    });
-  });
-
   test("create a nested tag inline and assign it to a transaction", async ({
     page,
+    connectAndRefreshHome,
   }) => {
-    const table = await connectAndRefresh(page);
+    const table = await connectAndRefreshHome();
 
     // Click the first transaction row to open dialog
     await table.locator("[data-testid^='tx-row-']").first().click();
@@ -76,8 +23,11 @@ test.describe("Transaction tagging", () => {
     await expect(dialog.getByTestId("tag-badge-personal/misc")).toBeVisible();
   });
 
-  test("remove a tag from a transaction via X icon", async ({ page }) => {
-    const table = await connectAndRefresh(page);
+  test("remove a tag from a transaction via X icon", async ({
+    page,
+    connectAndRefreshHome,
+  }) => {
+    const table = await connectAndRefreshHome();
 
     // Open first transaction dialog and create a tag
     await table.locator("[data-testid^='tx-row-']").first().click();
@@ -99,8 +49,9 @@ test.describe("Transaction tagging", () => {
 
   test("delete a tag globally with confirmation dialog showing count", async ({
     page,
+    connectAndRefreshHome,
   }) => {
-    const table = await connectAndRefresh(page);
+    const table = await connectAndRefreshHome();
 
     // Open first transaction and create a tag
     await table.locator("[data-testid^='tx-row-']").nth(0).click();
@@ -141,10 +92,10 @@ test.describe("Transaction tagging", () => {
   });
 
   test("refresh does not auto-assign system flow or date tags", async ({
-    page,
     request,
+    connectAndRefreshHome,
   }) => {
-    await connectAndRefresh(page);
+    await connectAndRefreshHome();
 
     // System flow/date tags should not be created.
     const tagsRes = await request.get("/api/tags");
@@ -196,10 +147,10 @@ test.describe("Transaction tagging", () => {
   });
 
   test("assigning child tag removes parent tag link (consolidation)", async ({
-    page,
     request,
+    connectAndRefreshHome,
   }) => {
-    await connectAndRefresh(page);
+    await connectAndRefreshHome();
 
     // Get a transaction
     const txRes = await request.get("/api/bank/transactions");
@@ -245,10 +196,10 @@ test.describe("Transaction tagging", () => {
   });
 
   test("by-tags aggregation includes child-tagged transactions", async ({
-    page,
     request,
+    connectAndRefreshHome,
   }) => {
-    await connectAndRefresh(page);
+    await connectAndRefreshHome();
 
     // Create parent tag "living" and child "living/rent"
     await request.post("/api/tags", {
