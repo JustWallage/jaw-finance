@@ -1,0 +1,2 @@
+Don't allow users to add another account with the same iban, then only add the ibans that aren't in the user's account yet.
+Not sure if it is possible to create a response message for the user to show a popup that the iban already existed in their account.

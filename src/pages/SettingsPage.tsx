@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Loader2,
   Link as LinkIcon,
@@ -7,6 +7,8 @@ import {
   Pencil,
   User,
   Database,
+  Trash2,
+  ChevronRight,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
@@ -52,16 +54,85 @@ export default function SettingsPage() {
   const [bankSearch, setBankSearch] = useState("");
   const [bankLoading, setBankLoading] = useState(false);
 
-  const [nicknameDialogOpen, setNicknameDialogOpen] = useState(false);
-  const [nicknameDraft, setNicknameDraft] = useState<Record<string, string>>(
-    {},
-  );
-  const [nicknameSaving, setNicknameSaving] = useState(false);
-  const [nicknameSaveError, setNicknameSaveError] = useState<string | null>(
-    null,
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+
+  const [accountDetailUid, setAccountDetailUid] = useState<string | null>(null);
+  const [accountTransactions, setAccountTransactions] = useState<
+    {
+      amount: string;
+      currency: string;
+      credit_debit: string;
+      booking_date: string | null;
+      counterparty_name: string | null;
+      remittance_info: string | null;
+    }[]
+  >([]);
+  const [accountDetailLoading, setAccountDetailLoading] = useState(false);
+  const [accountNickname, setAccountNickname] = useState("");
+  const [accountNicknameSaving, setAccountNicknameSaving] = useState(false);
+  const [deleteConfirmUid, setDeleteConfirmUid] = useState<string | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const accountDetailConnection = connections.find(
+    (c) => c.account_uid === accountDetailUid,
   );
 
-  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  useEffect(() => {
+    if (!accountDetailUid) return;
+    setAccountDetailLoading(true);
+    fetch(
+      `/api/bank/transactions?account_uid=${encodeURIComponent(accountDetailUid)}`,
+      { headers: authHeaders() },
+    )
+      .then((r) => r.json())
+      .then((data) => {
+        const txs = (data as { transactions: typeof accountTransactions })
+          .transactions;
+        setAccountTransactions(txs.slice(0, 5));
+      })
+      .catch(() => setAccountTransactions([]))
+      .finally(() => setAccountDetailLoading(false));
+  }, [accountDetailUid]);
+
+  function openAccountDetail(uid: string) {
+    const conn = connections.find((c) => c.account_uid === uid);
+    setAccountNickname(conn?.nickname ?? "");
+    setAccountDetailUid(uid);
+  }
+
+  async function saveAccountNickname() {
+    if (!accountDetailUid) return;
+    setAccountNicknameSaving(true);
+    try {
+      await fetch("/api/bank/nickname", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({
+          nicknames: { [accountDetailUid]: accountNickname },
+        }),
+      });
+      await fetchStatus();
+    } finally {
+      setAccountNicknameSaving(false);
+    }
+  }
+
+  async function deleteAccount() {
+    if (!deleteConfirmUid) return;
+    setDeleteLoading(true);
+    try {
+      await fetch("/api/bank/account", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ account_uid: deleteConfirmUid }),
+      });
+      setDeleteConfirmUid(null);
+      setAccountDetailUid(null);
+      await fetchStatus();
+    } finally {
+      setDeleteLoading(false);
+    }
+  }
 
   const [merchantPendingLoading, setMerchantPendingLoading] = useState(false);
   const [merchantForceLoading, setMerchantForceLoading] = useState(false);
@@ -130,41 +201,6 @@ export default function SettingsPage() {
       b.country.toLowerCase().includes(bankSearch.toLowerCase()),
   );
   const hasExpiredConnection = connections.length > 0 && !activeConnection;
-
-  function openNicknameDialog() {
-    const draft: Record<string, string> = {};
-    for (const c of connections) draft[c.account_uid] = c.nickname ?? "";
-    setNicknameDraft(draft);
-    setNicknameSaveError(null);
-    setNicknameDialogOpen(true);
-  }
-
-  async function saveNicknames() {
-    setNicknameSaving(true);
-    setNicknameSaveError(null);
-    try {
-      const res = await fetch("/api/bank/nickname", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ nicknames: nicknameDraft }),
-      });
-      if (!res.ok) {
-        const data = (await res.json()) as { error?: string };
-        setNicknameSaveError(data.error ?? "Failed to save");
-        return;
-      }
-      try {
-        await fetchStatus();
-      } catch (e) {
-        console.warn("fetchStatus failed:", e);
-      }
-      setNicknameDialogOpen(false);
-    } catch {
-      setNicknameSaveError("Network error. Please try again.");
-    } finally {
-      setNicknameSaving(false);
-    }
-  }
 
   return (
     <motion.div
@@ -386,36 +422,38 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Account Nicknames */}
+      {/* Accounts */}
       {connections.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Pencil className="h-5 w-5 text-primary" />
-              Account Names
+              Accounts
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
+            <p className="text-xs text-muted-foreground mb-2">
+              Tap an account to rename or remove it
+            </p>
+            <div className="space-y-1">
               {connections.map((c) => (
-                <div
+                <button
                   key={c.account_uid}
-                  className="flex items-center justify-between text-sm"
+                  onClick={() => openAccountDetail(c.account_uid)}
+                  className="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm hover:bg-muted transition-colors"
+                  data-testid={`account-item-${c.account_uid}`}
                 >
-                  <span className="text-muted-foreground">
-                    {c.iban ?? c.account_uid}
-                  </span>
-                  <span className="font-medium">{c.nickname || "—"}</span>
-                </div>
+                  <div className="text-left">
+                    <p className="font-medium">
+                      {c.nickname || c.iban || c.account_uid}
+                    </p>
+                    {c.nickname && c.iban && (
+                      <p className="text-xs text-muted-foreground">{c.iban}</p>
+                    )}
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </button>
               ))}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={openNicknameDialog}
-                data-testid="edit-nicknames-button"
-              >
-                <Pencil className="h-3 w-3" /> Edit Names
-              </Button>
             </div>
           </CardContent>
         </Card>
@@ -525,56 +563,139 @@ export default function SettingsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Nickname Dialog */}
-      <Dialog open={nicknameDialogOpen} onOpenChange={setNicknameDialogOpen}>
+      {/* Account Detail Modal */}
+      <Dialog
+        open={!!accountDetailUid}
+        onOpenChange={(open) => {
+          if (!open) setAccountDetailUid(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit account names</DialogTitle>
+            <DialogTitle>
+              {accountDetailConnection?.nickname ||
+                accountDetailConnection?.iban ||
+                accountDetailUid}
+            </DialogTitle>
             <DialogDescription>
-              Set a nickname for each account.
+              {accountDetailConnection?.aspsp_name} ·{" "}
+              {accountDetailConnection?.iban ?? accountDetailUid}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
-            {connections.map((c) => (
-              <div key={c.account_uid} className="space-y-1">
-                <p className="text-xs text-muted-foreground">
-                  {c.iban ?? c.account_uid}
-                </p>
-                <Input
-                  placeholder={c.iban ?? c.account_uid}
-                  value={nicknameDraft[c.account_uid] ?? ""}
-                  onChange={(e) =>
-                    setNicknameDraft((prev) => ({
-                      ...prev,
-                      [c.account_uid]: e.target.value,
-                    }))
-                  }
-                  data-testid={`nickname-input-${c.account_uid}`}
-                />
-              </div>
-            ))}
+
+          {/* Rename */}
+          <div className="space-y-1">
+            <p className="text-sm font-medium">Nickname</p>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Account nickname"
+                value={accountNickname}
+                onChange={(e) => setAccountNickname(e.target.value)}
+                data-testid="account-detail-nickname"
+              />
+              <Button
+                size="sm"
+                onClick={saveAccountNickname}
+                disabled={accountNicknameSaving}
+                data-testid="account-detail-save-nickname"
+              >
+                {accountNicknameSaving ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  "Save"
+                )}
+              </Button>
+            </div>
           </div>
-          <div className="flex justify-end gap-2">
-            {nicknameSaveError && (
-              <p className="flex-1 text-sm text-destructive">
-                {nicknameSaveError}
-              </p>
+
+          {/* Delete */}
+          <div className="pt-2">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => setDeleteConfirmUid(accountDetailUid)}
+              data-testid="account-detail-delete"
+            >
+              <Trash2 className="h-3 w-3" /> Remove Account
+            </Button>
+          </div>
+
+          {/* Recent Transactions */}
+          <div className="space-y-2 pt-2">
+            <p className="text-sm font-medium">Recent transactions</p>
+            {accountDetailLoading ? (
+              <div className="flex justify-center py-4">
+                <Loader2 className="h-4 w-4 animate-spin" />
+              </div>
+            ) : accountTransactions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No transactions</p>
+            ) : (
+              <div className="space-y-1 text-sm">
+                {accountTransactions.map((tx, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between rounded px-2 py-1 odd:bg-muted/50"
+                  >
+                    <div className="truncate flex-1">
+                      <span className="text-muted-foreground">
+                        {tx.booking_date ?? "—"}
+                      </span>{" "}
+                      {tx.counterparty_name || tx.remittance_info || "—"}
+                    </div>
+                    <span
+                      className={
+                        tx.credit_debit === "CRDT"
+                          ? "text-green-600 font-medium ml-2"
+                          : "text-foreground font-medium ml-2"
+                      }
+                    >
+                      {tx.credit_debit === "CRDT" ? "+" : "-"}
+                      {tx.amount} {tx.currency}
+                    </span>
+                  </div>
+                ))}
+              </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <Dialog
+        open={!!deleteConfirmUid}
+        onOpenChange={(open) => {
+          if (!open) setDeleteConfirmUid(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove account</DialogTitle>
+            <DialogDescription>
+              This will permanently delete this account and all its
+              transactions. Tags will be kept. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
             <Button
               variant="outline"
-              onClick={() => setNicknameDialogOpen(false)}
+              onClick={() => setDeleteConfirmUid(null)}
+              data-testid="delete-account-cancel"
             >
               Cancel
             </Button>
             <Button
-              onClick={saveNicknames}
-              disabled={nicknameSaving}
-              data-testid="save-nicknames-button"
+              variant="destructive"
+              onClick={deleteAccount}
+              disabled={deleteLoading}
+              data-testid="delete-account-confirm"
             >
-              {nicknameSaving ? (
+              {deleteLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
-              ) : null}
-              Save
+              ) : (
+                <>
+                  <Trash2 className="h-3 w-3" /> Delete
+                </>
+              )}
             </Button>
           </div>
         </DialogContent>

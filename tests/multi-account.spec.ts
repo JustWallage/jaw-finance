@@ -124,19 +124,23 @@ test.describe("Multi-account support", () => {
   }) => {
     await connectAndRefreshHome();
 
-    // Navigate to settings to edit nicknames
+    // Navigate to settings and click on the IBAN account item
     await page.getByTestId("nav-settings").click();
-    await page.getByTestId("edit-nicknames-button").click();
+    await page
+      .locator('[data-testid^="account-item-"]', {
+        hasText: "NL00MOCK0123456789",
+      })
+      .click();
 
-    // Dialog should show an input for the IBAN account (placeholder = IBAN)
-    const ibanInput = page.locator('[placeholder="NL00MOCK0123456789"]');
-    await expect(ibanInput).toBeVisible();
+    // Fill the nickname in the account detail modal
+    await page.getByTestId("account-detail-nickname").fill("My Checking");
+    await page.getByTestId("account-detail-save-nickname").click();
 
-    // Type a nickname for the IBAN account
-    await ibanInput.fill("My Checking");
-    await page.getByTestId("save-nicknames-button").click();
+    // Close modal
+    await page.keyboard.press("Escape");
 
     // After save, switcher should show the nickname instead of the IBAN
+    await page.getByTestId("nav-home").click();
     const switcher = page.getByTestId("account-switcher");
     await expect(switcher).toContainText("My Checking", { timeout: 5_000 });
     await expect(switcher).not.toContainText("NL00MOCK0123456789");
@@ -156,19 +160,30 @@ test.describe("Multi-account support", () => {
 
     const switcher = page.getByTestId("account-switcher");
 
-    // Set a nickname first via settings
+    // Set a nickname first via account detail
     await page.getByTestId("nav-settings").click();
-    await page.getByTestId("edit-nicknames-button").click();
-    await page.locator('[placeholder="NL00MOCK0123456789"]').fill("Temp Name");
-    await page.getByTestId("save-nicknames-button").click();
+    await page
+      .locator('[data-testid^="account-item-"]', {
+        hasText: "NL00MOCK0123456789",
+      })
+      .click();
+    await page.getByTestId("account-detail-nickname").fill("Temp Name");
+    await page.getByTestId("account-detail-save-nickname").click();
+    await page.keyboard.press("Escape");
+    await page.getByTestId("nav-home").click();
     await expect(switcher).toContainText("Temp Name", { timeout: 5_000 });
 
     // Now clear it
-    await page.getByTestId("edit-nicknames-button").click();
-    await page.locator('[placeholder="NL00MOCK0123456789"]').fill("");
-    await page.getByTestId("save-nicknames-button").click();
+    await page.getByTestId("nav-settings").click();
+    await page
+      .locator('[data-testid^="account-item-"]', { hasText: "Temp Name" })
+      .click();
+    await page.getByTestId("account-detail-nickname").fill("");
+    await page.getByTestId("account-detail-save-nickname").click();
+    await page.keyboard.press("Escape");
 
     // Should revert to IBAN
+    await page.getByTestId("nav-home").click();
     await expect(switcher).toContainText("NL00MOCK0123456789", {
       timeout: 5_000,
     });
@@ -206,5 +221,41 @@ test.describe("Multi-account support", () => {
     await expect(tableAfterReload).toBeVisible({ timeout: 10_000 });
     await expect(tableAfterReload).toContainText("Savings transfer");
     await expect(tableAfterReload).not.toContainText("Employer BV");
+  });
+
+  test("can remove an account and its transactions are deleted", async ({
+    page,
+    connectAndRefreshHome,
+  }) => {
+    await connectAndRefreshHome();
+
+    // Confirm we have transactions for the main account
+    const table = page.getByTestId("transactions-table");
+    await expect(table).toBeVisible({ timeout: 10_000 });
+
+    // Navigate to settings and open the IBAN account detail
+    await page.getByTestId("nav-settings").click();
+    const accountItem = page.locator('[data-testid^="account-item-"]', {
+      hasText: "NL00MOCK0123456789",
+    });
+    await expect(accountItem).toBeVisible({ timeout: 5_000 });
+    await accountItem.click();
+
+    // Click remove
+    await page.getByTestId("account-detail-delete").click();
+
+    // Confirmation modal should appear
+    await expect(page.getByTestId("delete-account-confirm")).toBeVisible();
+
+    // Confirm deletion
+    await page.getByTestId("delete-account-confirm").click();
+
+    // Account should disappear from the list
+    await expect(accountItem).not.toBeVisible({ timeout: 5_000 });
+
+    // The savings account should still be visible
+    await expect(
+      page.locator('[data-testid^="account-item-"]', { hasText: "savings" }),
+    ).toBeVisible();
   });
 });
