@@ -1,5 +1,13 @@
 import { useState } from "react";
-import { Loader2, Link as LinkIcon, AlertTriangle, History, Pencil, User, Database } from "lucide-react";
+import {
+  Loader2,
+  Link as LinkIcon,
+  AlertTriangle,
+  History,
+  Pencil,
+  User,
+  Database,
+} from "lucide-react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,14 +46,22 @@ export default function SettingsPage() {
   } = useBankConnectionContext();
 
   const [bankDialogOpen, setBankDialogOpen] = useState(false);
-  const [bankList, setBankList] = useState<{ name: string; country: string; logo: string }[]>([]);
+  const [bankList, setBankList] = useState<
+    { name: string; country: string; logo: string }[]
+  >([]);
   const [bankSearch, setBankSearch] = useState("");
   const [bankLoading, setBankLoading] = useState(false);
 
   const [nicknameDialogOpen, setNicknameDialogOpen] = useState(false);
-  const [nicknameDraft, setNicknameDraft] = useState<Record<string, string>>({});
+  const [nicknameDraft, setNicknameDraft] = useState<Record<string, string>>(
+    {},
+  );
   const [nicknameSaving, setNicknameSaving] = useState(false);
-  const [nicknameSaveError, setNicknameSaveError] = useState<string | null>(null);
+  const [nicknameSaveError, setNicknameSaveError] = useState<string | null>(
+    null,
+  );
+
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
 
   const [merchantPendingLoading, setMerchantPendingLoading] = useState(false);
   const [merchantForceLoading, setMerchantForceLoading] = useState(false);
@@ -59,7 +75,7 @@ export default function SettingsPage() {
         method: "POST",
         headers: authHeaders(),
       });
-      const data = await res.json() as { evaluated: number };
+      const data = (await res.json()) as { evaluated: number };
       setMerchantResult(`Evaluated ${data.evaluated} pending transactions`);
     } catch {
       setMerchantResult("Failed to evaluate");
@@ -76,7 +92,7 @@ export default function SettingsPage() {
         method: "POST",
         headers: authHeaders(),
       });
-      const data = await res.json() as { evaluated: number };
+      const data = (await res.json()) as { evaluated: number };
       setMerchantResult(`Re-evaluated ${data.evaluated} transactions`);
     } catch {
       setMerchantResult("Failed to evaluate");
@@ -93,7 +109,9 @@ export default function SettingsPage() {
     try {
       const res = await fetch("/api/bank/aspsps", { headers: authHeaders() });
       if (res.ok) {
-        const data = (await res.json()) as { aspsps: { name: string; country: string; logo: string }[] };
+        const data = (await res.json()) as {
+          aspsps: { name: string; country: string; logo: string }[];
+        };
         setBankList(data.aspsps.sort((a, b) => a.name.localeCompare(b.name)));
       }
     } finally {
@@ -135,7 +153,11 @@ export default function SettingsPage() {
         setNicknameSaveError(data.error ?? "Failed to save");
         return;
       }
-      try { await fetchStatus(); } catch (e) { console.warn("fetchStatus failed:", e); }
+      try {
+        await fetchStatus();
+      } catch (e) {
+        console.warn("fetchStatus failed:", e);
+      }
       setNicknameDialogOpen(false);
     } catch {
       setNicknameSaveError("Network error. Please try again.");
@@ -163,20 +185,72 @@ export default function SettingsPage() {
 
       {/* User Info */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <User className="h-5 w-5 text-primary" />
             Account
           </CardTitle>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => setLogoutDialogOpen(true)}
+            data-testid="logout-button"
+          >
+            Log out
+          </Button>
         </CardHeader>
         <CardContent className="space-y-2">
-          <p className="text-sm text-muted-foreground">{userEmail ?? "Not signed in"}</p>
+          <p className="text-sm text-muted-foreground">
+            {userEmail ?? "Not signed in"}
+          </p>
           <div className="flex gap-2 text-xs">
-            <a href="/terms" className="underline text-primary" data-testid="link-terms">Terms</a>
-            <a href="/privacy" className="underline text-primary" data-testid="link-privacy">Privacy</a>
+            <a
+              href="/terms"
+              className="underline text-primary"
+              data-testid="link-terms"
+            >
+              Terms
+            </a>
+            <a
+              href="/privacy"
+              className="underline text-primary"
+              data-testid="link-privacy"
+            >
+              Privacy
+            </a>
           </div>
         </CardContent>
       </Card>
+
+      {/* Logout Confirmation */}
+      <Dialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Log out</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to log out?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setLogoutDialogOpen(false)}
+              data-testid="logout-cancel"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                window.location.href = "/cdn-cgi/access/logout";
+              }}
+              data-testid="logout-confirm"
+            >
+              Log out
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Bank Connection */}
       <Card>
@@ -203,17 +277,25 @@ export default function SettingsPage() {
             <div className="text-sm text-muted-foreground space-y-1">
               <p className="font-medium text-foreground">
                 Connected to {activeConnection.aspsp_name}
-                <Badge variant="secondary" className="ml-2">{activeConnection.aspsp_country}</Badge>
+                <Badge variant="secondary" className="ml-2">
+                  {activeConnection.aspsp_country}
+                </Badge>
               </p>
               {activeConnection.iban && <p>IBAN: {activeConnection.iban}</p>}
-              <p>Valid until: {new Date(activeConnection.valid_until).toLocaleDateString()}</p>
+              <p>
+                Valid until:{" "}
+                {new Date(activeConnection.valid_until).toLocaleDateString()}
+              </p>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">No bank connected.</p>
           )}
 
           {importProgress && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="import-progress">
+            <div
+              className="flex items-center gap-2 text-sm text-muted-foreground"
+              data-testid="import-progress"
+            >
               <Loader2 className="h-4 w-4 animate-spin" />
               {importProgress}
             </div>
@@ -225,23 +307,37 @@ export default function SettingsPage() {
                 variant={hasExpiredConnection ? "destructive" : "default"}
                 onClick={openBankDialog}
                 disabled={loading !== null}
-                data-testid={hasExpiredConnection ? "reconnect-button" : "connect-button"}
+                data-testid={
+                  hasExpiredConnection ? "reconnect-button" : "connect-button"
+                }
               >
                 {loading === "connect" ? (
-                  <><Loader2 className="animate-spin" /> Connecting…</>
+                  <>
+                    <Loader2 className="animate-spin" /> Connecting…
+                  </>
+                ) : hasExpiredConnection ? (
+                  <>
+                    <LinkIcon className="h-4 w-4" /> Reconnect
+                  </>
                 ) : (
-                  hasExpiredConnection ? <><LinkIcon className="h-4 w-4" /> Reconnect</> : <><LinkIcon className="h-4 w-4" /> Connect Bank</>
+                  <>
+                    <LinkIcon className="h-4 w-4" /> Connect Bank
+                  </>
                 )}
               </Button>
             ) : (
               <>
                 <Button
                   variant="outline"
-                  onClick={() => { handleRefresh(); }}
+                  onClick={() => {
+                    handleRefresh();
+                  }}
                   disabled={loading !== null || importProgress !== null}
                   data-testid="refresh-button"
                 >
-                  {loading === "refresh" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {loading === "refresh" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : null}
                   Refresh
                 </Button>
                 <Button
@@ -264,9 +360,24 @@ export default function SettingsPage() {
                     }
                   />
                   <DropdownMenuContent>
-                    <DropdownMenuItem data-testid="import-3m" onClick={() => handleImportHistory(3)}>3 Months</DropdownMenuItem>
-                    <DropdownMenuItem data-testid="import-1y" onClick={() => handleImportHistory(12)}>1 Year</DropdownMenuItem>
-                    <DropdownMenuItem data-testid="import-5y" onClick={() => handleImportHistory(60)}>5 Years</DropdownMenuItem>
+                    <DropdownMenuItem
+                      data-testid="import-3m"
+                      onClick={() => handleImportHistory(3)}
+                    >
+                      3 Months
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      data-testid="import-1y"
+                      onClick={() => handleImportHistory(12)}
+                    >
+                      1 Year
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      data-testid="import-5y"
+                      onClick={() => handleImportHistory(60)}
+                    >
+                      5 Years
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>
@@ -287,12 +398,22 @@ export default function SettingsPage() {
           <CardContent>
             <div className="space-y-2">
               {connections.map((c) => (
-                <div key={c.account_uid} className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">{c.iban ?? c.account_uid}</span>
+                <div
+                  key={c.account_uid}
+                  className="flex items-center justify-between text-sm"
+                >
+                  <span className="text-muted-foreground">
+                    {c.iban ?? c.account_uid}
+                  </span>
                   <span className="font-medium">{c.nickname || "—"}</span>
                 </div>
               ))}
-              <Button variant="outline" size="sm" onClick={openNicknameDialog} data-testid="edit-nicknames-button">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={openNicknameDialog}
+                data-testid="edit-nicknames-button"
+              >
                 <Pencil className="h-3 w-3" /> Edit Names
               </Button>
             </div>
@@ -303,10 +424,15 @@ export default function SettingsPage() {
       {/* Merchant Dictionary Card */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base"><Database className="h-4 w-4" /> Merchant Dictionary</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Database className="h-4 w-4" /> Merchant Dictionary
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground">Auto-tag transactions by matching merchant names against the global pattern dictionary.</p>
+          <p className="text-sm text-muted-foreground">
+            Auto-tag transactions by matching merchant names against the global
+            pattern dictionary.
+          </p>
           <div className="flex flex-wrap gap-2">
             <Button
               size="sm"
@@ -314,7 +440,9 @@ export default function SettingsPage() {
               disabled={merchantPendingLoading || merchantForceLoading}
               data-testid="merchant-evaluate-pending"
             >
-              {merchantPendingLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {merchantPendingLoading && (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              )}
               Evaluate Pending
             </Button>
             <Button
@@ -324,12 +452,19 @@ export default function SettingsPage() {
               disabled={merchantPendingLoading || merchantForceLoading}
               data-testid="merchant-evaluate-force"
             >
-              {merchantForceLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {merchantForceLoading && (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              )}
               Re-evaluate All
             </Button>
           </div>
           {merchantResult && (
-            <p className="text-sm text-muted-foreground" data-testid="merchant-result">{merchantResult}</p>
+            <p
+              className="text-sm text-muted-foreground"
+              data-testid="merchant-result"
+            >
+              {merchantResult}
+            </p>
           )}
         </CardContent>
       </Card>
@@ -339,7 +474,9 @@ export default function SettingsPage() {
         <DialogContent className="max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Select your bank</DialogTitle>
-            <DialogDescription>Search and select the bank you want to connect.</DialogDescription>
+            <DialogDescription>
+              Search and select the bank you want to connect.
+            </DialogDescription>
           </DialogHeader>
           <Input
             placeholder="Search banks…"
@@ -354,19 +491,32 @@ export default function SettingsPage() {
                 <Loader2 className="h-6 w-6 animate-spin" />
               </div>
             ) : filteredBanks.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">No banks found.</p>
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No banks found.
+              </p>
             ) : (
               <div className="space-y-1">
                 {filteredBanks.map((bank) => (
                   <button
                     key={`${bank.country}-${bank.name}`}
                     className="w-full flex items-center gap-3 p-2 rounded hover:bg-accent text-left"
-                    onClick={() => selectBank({ name: bank.name, country: bank.country })}
+                    onClick={() =>
+                      selectBank({ name: bank.name, country: bank.country })
+                    }
                     data-testid={`bank-option-${bank.name}`}
                   >
-                    <img src={`${bank.logo}-/resize/32x/`} alt="" className="w-6 h-6 rounded" loading="lazy" />
-                    <span className="flex-1 text-sm font-medium">{bank.name}</span>
-                    <Badge variant="outline" className="text-xs">{bank.country}</Badge>
+                    <img
+                      src={`${bank.logo}-/resize/32x/`}
+                      alt=""
+                      className="w-6 h-6 rounded"
+                      loading="lazy"
+                    />
+                    <span className="flex-1 text-sm font-medium">
+                      {bank.name}
+                    </span>
+                    <Badge variant="outline" className="text-xs">
+                      {bank.country}
+                    </Badge>
                   </button>
                 ))}
               </div>
@@ -380,26 +530,50 @@ export default function SettingsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit account names</DialogTitle>
-            <DialogDescription>Set a nickname for each account.</DialogDescription>
+            <DialogDescription>
+              Set a nickname for each account.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             {connections.map((c) => (
               <div key={c.account_uid} className="space-y-1">
-                <p className="text-xs text-muted-foreground">{c.iban ?? c.account_uid}</p>
+                <p className="text-xs text-muted-foreground">
+                  {c.iban ?? c.account_uid}
+                </p>
                 <Input
                   placeholder={c.iban ?? c.account_uid}
                   value={nicknameDraft[c.account_uid] ?? ""}
-                  onChange={(e) => setNicknameDraft((prev) => ({ ...prev, [c.account_uid]: e.target.value }))}
+                  onChange={(e) =>
+                    setNicknameDraft((prev) => ({
+                      ...prev,
+                      [c.account_uid]: e.target.value,
+                    }))
+                  }
                   data-testid={`nickname-input-${c.account_uid}`}
                 />
               </div>
             ))}
           </div>
           <div className="flex justify-end gap-2">
-            {nicknameSaveError && <p className="flex-1 text-sm text-destructive">{nicknameSaveError}</p>}
-            <Button variant="outline" onClick={() => setNicknameDialogOpen(false)}>Cancel</Button>
-            <Button onClick={saveNicknames} disabled={nicknameSaving} data-testid="save-nicknames-button">
-              {nicknameSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {nicknameSaveError && (
+              <p className="flex-1 text-sm text-destructive">
+                {nicknameSaveError}
+              </p>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => setNicknameDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={saveNicknames}
+              disabled={nicknameSaving}
+              data-testid="save-nicknames-button"
+            >
+              {nicknameSaving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : null}
               Save
             </Button>
           </div>

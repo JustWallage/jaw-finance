@@ -1,1 +1,3 @@
+By default transactions are only evaluated using the merchant db and similar transactions (same iban, description, etc, then those tags are provided to the LLM). All other transactions must be marked (or rather not marked as merchant) that they have to be evaluated by the user. The user should be able to enter a textual description of what it is, then the AI model must categorize it into tags.
+
 For transactions add the option to explain what it is in natural language and have AI evaluate it based on that.

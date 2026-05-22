@@ -1,0 +1,1 @@
+I want the merchant db tags to be the list of default tags, and other tags to be custom (either created by the user or LLM).
