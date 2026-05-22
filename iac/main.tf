@@ -78,7 +78,7 @@ resource "cloudflare_zero_trust_access_application" "jaw_finance" {
   domain                    = "finance.just.wallage.nl/api"
   type                      = "self_hosted"
   session_duration          = "24h"
-  auto_redirect_to_identity = true
+  auto_redirect_to_identity = false
   app_launcher_visible      = true
 
   # We strictly depend on the domain being registered in Pages first
