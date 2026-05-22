@@ -6,6 +6,7 @@ export const onRequest: PagesFunction<EBEnv> = async (context) => {
   // Don't block the consent endpoint itself, health checks, auth login, or the bank callback
   // (callback gets user identity from the OAuth state parameter, not headers)
   if (
+    url.pathname === "/api" ||
     url.pathname === "/api/consent" ||
     url.pathname === "/api/health" ||
     url.pathname === "/api/auth/login" ||

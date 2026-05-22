@@ -1,0 +1,1 @@
+When you log out you end up at the CF login page, but when you login again then you end at /api# which is an empty page. Instead make it redirect to / after logging out
