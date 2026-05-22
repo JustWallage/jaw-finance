@@ -1,5 +1,12 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { Home, MessageCircle, TrendingUp, Settings, Eye, EyeOff } from "lucide-react";
+import {
+  Home,
+  MessageCircle,
+  TrendingUp,
+  Settings,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { useBankConnectionContext } from "./BankConnectionProvider";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import {
@@ -11,8 +18,12 @@ import {
 } from "@/components/ui/select";
 
 export function Layout() {
-  const { connections, selectedAccountUid, setSelectedAccountUid } = useBankConnectionContext();
-  const [hideIncome, setHideIncome] = useLocalStorage("jaw-finance-hide-income", false);
+  const { connections, selectedAccountUid, setSelectedAccountUid } =
+    useBankConnectionContext();
+  const [hideIncome, setHideIncome] = useLocalStorage(
+    "jaw-finance-hide-income",
+    false,
+  );
 
   const accountLabel = (uid: string) => {
     if (uid === "all") return "All Accounts";
@@ -31,10 +42,19 @@ export function Layout() {
             title={hideIncome ? "Show income" : "Hide income"}
             className="rounded-md p-1.5 text-muted-foreground transition-colors hover:text-foreground"
           >
-            {hideIncome ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            {hideIncome ? (
+              <EyeOff className="h-4 w-4" />
+            ) : (
+              <Eye className="h-4 w-4" />
+            )}
           </button>
           {connections.length > 0 && (
-            <Select value={selectedAccountUid} onValueChange={(v) => { if (v) setSelectedAccountUid(v); }}>
+            <Select
+              value={selectedAccountUid}
+              onValueChange={(v) => {
+                if (v) setSelectedAccountUid(v);
+              }}
+            >
               <SelectTrigger
                 className="h-8 w-auto gap-1.5 rounded-full border-border bg-secondary px-3 text-xs font-medium"
                 data-testid="account-switcher"
@@ -42,9 +62,15 @@ export function Layout() {
                 <SelectValue>{accountLabel(selectedAccountUid)}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all" data-testid="account-option-all">All Accounts</SelectItem>
+                <SelectItem value="all" data-testid="account-option-all">
+                  All Accounts
+                </SelectItem>
                 {connections.map((c) => (
-                  <SelectItem key={c.account_uid} value={c.account_uid} data-testid={`account-option-${c.account_uid}`}>
+                  <SelectItem
+                    key={c.account_uid}
+                    value={c.account_uid}
+                    data-testid={`account-option-${c.account_uid}`}
+                  >
                     {c.nickname ?? c.iban ?? c.account_uid}
                   </SelectItem>
                 ))}
@@ -63,10 +89,20 @@ export function Layout() {
 
 function BottomNav() {
   const items = [
-    { to: "/", label: "Home", icon: Home, testId: "nav-home" },
-    { to: "/chat", label: "Chat", icon: MessageCircle, testId: "nav-chat" },
-    { to: "/trends", label: "Trends", icon: TrendingUp, testId: "nav-trends" },
-    { to: "/settings", label: "Settings", icon: Settings, testId: "nav-settings" },
+    { to: "/app", label: "Home", icon: Home, testId: "nav-home" },
+    { to: "/app/chat", label: "Chat", icon: MessageCircle, testId: "nav-chat" },
+    {
+      to: "/app/trends",
+      label: "Trends",
+      icon: TrendingUp,
+      testId: "nav-trends",
+    },
+    {
+      to: "/app/settings",
+      label: "Settings",
+      icon: Settings,
+      testId: "nav-settings",
+    },
   ];
   return (
     <nav
@@ -78,7 +114,7 @@ function BottomNav() {
           <NavLink
             key={to}
             to={to}
-            end={to === "/"}
+            end={to === "/app"}
             data-testid={testId}
             className={({ isActive }) =>
               `flex flex-col items-center gap-1 rounded-md px-4 py-2 text-xs transition-colors ${

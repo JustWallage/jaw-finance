@@ -15,7 +15,7 @@ test.describe("Consent flow", () => {
     expect(res.status()).toBe(403);
 
     // Visit app - consent modal should appear
-    await page.goto("/");
+    await page.goto("/app");
     const modal = page.getByTestId("consent-modal");
     await expect(modal).toBeVisible({ timeout: 10_000 });
 
@@ -34,7 +34,7 @@ test.describe("Consent flow", () => {
     request,
     userEmail,
   }) => {
-    await page.goto("/");
+    await page.goto("/app");
     const modal = page.getByTestId("consent-modal");
     await expect(modal).toBeVisible({ timeout: 10_000 });
 

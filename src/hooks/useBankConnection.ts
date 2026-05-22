@@ -59,11 +59,11 @@ export function useBankConnection() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("bank_error")) {
       setError(params.get("bank_error")!);
-      window.history.replaceState({}, "", "/");
+      window.history.replaceState({}, "", "/app");
     }
     if (params.get("connected")) {
       justConnected.current = true;
-      window.history.replaceState({}, "", "/");
+      window.history.replaceState({}, "", "/app");
     }
     fetchStatus();
   }, []);
@@ -125,7 +125,8 @@ export function useBankConnection() {
 
     const isStale =
       oldestRefresh === null || Date.now() - oldestRefresh > TWO_HOURS;
-    const recentAttempt = Date.now() - lastRefreshAttempt.current < FIVE_MINUTES;
+    const recentAttempt =
+      Date.now() - lastRefreshAttempt.current < FIVE_MINUTES;
 
     if (isStale && !recentAttempt) {
       autoRefreshTriggered.current = true;

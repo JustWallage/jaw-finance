@@ -26,7 +26,7 @@ test.describe("Natural language chat", () => {
     page,
     connectAndRefreshHome,
   }) => {
-    await page.goto("/");
+    await page.goto("/app");
     // Chat should be visible but disabled without a connection
     await expect(page.getByTestId("chat-form")).toBeVisible();
     await expect(page.getByTestId("chat-input")).toBeDisabled();

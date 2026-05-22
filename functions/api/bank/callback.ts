@@ -11,14 +11,14 @@ export const onRequestGet: PagesFunction<EBEnv> = async (context) => {
   if (error) {
     const desc = url.searchParams.get("error_description") ?? error;
     return Response.redirect(
-      `${url.origin}/?bank_error=${encodeURIComponent(desc)}`,
+      `${url.origin}/app?bank_error=${encodeURIComponent(desc)}`,
       302,
     );
   }
 
   if (!code || !stateParam) {
     return Response.redirect(
-      `${url.origin}/?bank_error=${encodeURIComponent("Missing authorization code or state")}`,
+      `${url.origin}/app?bank_error=${encodeURIComponent("Missing authorization code or state")}`,
       302,
     );
   }
@@ -30,7 +30,7 @@ export const onRequestGet: PagesFunction<EBEnv> = async (context) => {
     userEmail = state.email;
   } catch {
     return Response.redirect(
-      `${url.origin}/?bank_error=${encodeURIComponent("Invalid state parameter")}`,
+      `${url.origin}/app?bank_error=${encodeURIComponent("Invalid state parameter")}`,
       302,
     );
   }
@@ -44,7 +44,7 @@ export const onRequestGet: PagesFunction<EBEnv> = async (context) => {
     if (!res.ok) {
       const text = await res.text();
       return Response.redirect(
-        `${url.origin}/?bank_error=${encodeURIComponent(`Session creation failed: ${text}`)}`,
+        `${url.origin}/app?bank_error=${encodeURIComponent(`Session creation failed: ${text}`)}`,
         302,
       );
     }
@@ -73,11 +73,11 @@ export const onRequestGet: PagesFunction<EBEnv> = async (context) => {
         .run();
     }
 
-    return Response.redirect(`${url.origin}/?connected=true`, 302);
+    return Response.redirect(`${url.origin}/app?connected=true`, 302);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Unknown error";
     return Response.redirect(
-      `${url.origin}/?bank_error=${encodeURIComponent(msg)}`,
+      `${url.origin}/app?bank_error=${encodeURIComponent(msg)}`,
       302,
     );
   }

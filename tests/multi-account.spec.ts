@@ -5,12 +5,12 @@ test.describe("Multi-account support", () => {
     page,
     request,
   }) => {
-    await page.goto("/settings");
+    await page.goto("/app/settings");
     await page.getByTestId("connect-button").click();
     await page.getByTestId("bank-option-bunq").click();
     await page.waitForURL("**/mock-enable-banking/consent**");
     await page.getByTestId("simulate-success").click();
-    await page.waitForURL("**/?connected=true");
+    await page.waitForURL("**/app?connected=true");
 
     const res = await request.get("/api/bank/status");
     const data = await res.json();

@@ -61,7 +61,7 @@ test.describe("Merchant Dictionary", () => {
   });
 
   test("settings page shows merchant dictionary controls", async ({ page }) => {
-    await page.goto("/settings");
+    await page.goto("/app/settings");
     await expect(page.getByTestId("merchant-evaluate-pending")).toBeVisible();
     await expect(page.getByTestId("merchant-evaluate-force")).toBeVisible();
   });
@@ -77,7 +77,7 @@ test.describe("Merchant Dictionary", () => {
     await request.post("/api/transactions/evaluate-merchant-all-force");
 
     // Now go to settings and trigger pending (should evaluate 0 since all are already done)
-    await page.goto("/settings");
+    await page.goto("/app/settings");
     await page.getByTestId("merchant-evaluate-pending").click();
     await expect(page.getByTestId("merchant-result")).toBeVisible({
       timeout: 10_000,
@@ -93,7 +93,7 @@ test.describe("Merchant Dictionary", () => {
   }) => {
     await connectAndRefresh();
 
-    await page.goto("/settings");
+    await page.goto("/app/settings");
     await page.getByTestId("merchant-evaluate-force").click();
     await expect(page.getByTestId("merchant-result")).toBeVisible({
       timeout: 10_000,

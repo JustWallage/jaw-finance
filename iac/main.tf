@@ -71,11 +71,11 @@ resource "cloudflare_zero_trust_access_identity_provider" "google" {
   }
 }
 
-# Access Application – protects finance.just.wallage.nl
+# Access Application – protects finance.just.wallage.nl/api
 resource "cloudflare_zero_trust_access_application" "jaw_finance" {
   account_id                = var.cloudflare_account_id
   name                      = "jaw-finance"
-  domain                    = "finance.just.wallage.nl"
+  domain                    = "finance.just.wallage.nl/api"
   type                      = "self_hosted"
   session_duration          = "24h"
   auto_redirect_to_identity = true

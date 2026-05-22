@@ -1,6 +1,13 @@
 import { useState, useCallback, useEffect } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
-import { Loader2, Send, Sparkles, LinkIcon, AlertTriangle, RefreshCw } from "lucide-react";
+import {
+  Loader2,
+  Send,
+  Sparkles,
+  LinkIcon,
+  AlertTriangle,
+  RefreshCw,
+} from "lucide-react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -38,17 +45,29 @@ export default function HomePage() {
   const { currentMonthIncome, currentMonthExpense, pastMonths } =
     useIncomeAnalytics(selectedAccountUid);
 
-  const { tags, fetchTags, createTag, deleteTag, getTagCount, getTransactionTags, assignTag, removeTag } = useTags();
+  const {
+    tags,
+    fetchTags,
+    createTag,
+    deleteTag,
+    getTagCount,
+    getTransactionTags,
+    assignTag,
+    removeTag,
+  } = useTags();
   const [selectedTxId, setSelectedTxId] = useState<number | null>(null);
   const [selectedTxTags, setSelectedTxTags] = useState<DBTag[]>([]);
 
   const selectedTx = transactions.find((tx) => tx.id === selectedTxId) ?? null;
 
-  const openTransaction = useCallback(async (txId: number) => {
-    setSelectedTxId(txId);
-    const txTagList = await getTransactionTags(txId);
-    setSelectedTxTags(txTagList);
-  }, [getTransactionTags]);
+  const openTransaction = useCallback(
+    async (txId: number) => {
+      setSelectedTxId(txId);
+      const txTagList = await getTransactionTags(txId);
+      setSelectedTxTags(txTagList);
+    },
+    [getTransactionTags],
+  );
 
   const handleTagsChanged = useCallback(async () => {
     if (selectedTxId) {
@@ -66,7 +85,10 @@ export default function HomePage() {
     try {
       await fetch(`/api/transactions/${selectedTxId}/evaluate`, {
         method: "POST",
-        headers: { ...authHeaders(), "X-Test-Mock-AI": import.meta.env.VITE_MOCK_AI === "1" ? "1" : "" },
+        headers: {
+          ...authHeaders(),
+          "X-Test-Mock-AI": import.meta.env.VITE_MOCK_AI === "1" ? "1" : "",
+        },
       });
       await handleTagsChanged();
     } finally {
@@ -80,7 +102,7 @@ export default function HomePage() {
   function handleChatSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!chatQuestion.trim()) return;
-    navigate(`/chat?q=${encodeURIComponent(chatQuestion.trim())}`);
+    navigate(`/app/chat?q=${encodeURIComponent(chatQuestion.trim())}`);
   }
 
   // Build chart data
@@ -89,7 +111,11 @@ export default function HomePage() {
     const now = new Date();
     const currentPeriod = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
     if (!chartData.some((d) => d.period === currentPeriod)) {
-      chartData.push({ period: currentPeriod, income: currentMonthIncome, expense: currentMonthExpense ?? 0 });
+      chartData.push({
+        period: currentPeriod,
+        income: currentMonthIncome,
+        expense: currentMonthExpense ?? 0,
+      });
     }
   }
 
@@ -104,12 +130,27 @@ export default function HomePage() {
       transition={{ duration: 0.3 }}
     >
       {/* Chat Hero */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.05 }} className="space-y-2">
-        <h2 className="text-lg font-semibold tracking-tight">Ask your finances</h2>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.05 }}
+        className="space-y-2"
+      >
+        <h2 className="text-lg font-semibold tracking-tight">
+          Ask your finances
+        </h2>
         <div className="rounded-2xl bg-linear-to-r from-primary/20 via-primary/10 to-primary/20 p-px">
-          <form onSubmit={handleChatSubmit} data-testid="chat-form" className="relative">
+          <form
+            onSubmit={handleChatSubmit}
+            data-testid="chat-form"
+            className="relative"
+          >
             <Input
-              placeholder={hasData ? "e.g. How much did I spend on food this month?" : "Connect a bank to get started"}
+              placeholder={
+                hasData
+                  ? "e.g. How much did I spend on food this month?"
+                  : "Connect a bank to get started"
+              }
               value={chatQuestion}
               onChange={(e) => setChatQuestion(e.target.value)}
               disabled={!hasData}
@@ -134,12 +175,13 @@ export default function HomePage() {
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Bank connection expired</AlertTitle>
           <AlertDescription>
-            Your bank connection has expired. Reconnect to continue syncing transactions.
+            Your bank connection has expired. Reconnect to continue syncing
+            transactions.
           </AlertDescription>
           <Button
             variant="destructive"
             size="sm"
-            onClick={() => navigate("/settings")}
+            onClick={() => navigate("/app/settings")}
             data-testid="expired-connection-reconnect-button"
             className="justify-self-start mt-2"
           >
@@ -150,23 +192,38 @@ export default function HomePage() {
 
       {/* Empty state — feature preview */}
       {!hasData && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+        >
           <div className="relative">
             {/* Blurred mock content */}
             <div className="pointer-events-none select-none blur-sm opacity-50 space-y-4">
               <div className="flex items-baseline gap-6">
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground">Income this month</p>
-                  <p className="text-2xl font-bold text-income">+3,245.00 EUR</p>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Income this month
+                  </p>
+                  <p className="text-2xl font-bold text-income">
+                    +3,245.00 EUR
+                  </p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-muted-foreground">Expenses this month</p>
-                  <p className="text-2xl font-bold text-expense">-1,876.50 EUR</p>
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Expenses this month
+                  </p>
+                  <p className="text-2xl font-bold text-expense">
+                    -1,876.50 EUR
+                  </p>
                 </div>
               </div>
               <div className="h-40 rounded-lg bg-muted" />
               {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
+                <div
+                  key={i}
+                  className="flex items-center gap-3 rounded-lg border border-border bg-card p-3"
+                >
                   <div className="flex-1 space-y-1">
                     <div className="h-3.5 w-32 rounded bg-muted" />
                     <div className="h-2.5 w-48 rounded bg-muted" />
@@ -180,12 +237,21 @@ export default function HomePage() {
               <Card className="shadow-lg">
                 <CardContent className="flex flex-col items-center gap-3 py-6 px-8">
                   <LinkIcon className="h-8 w-8 text-primary" />
-                  <p className="text-sm font-medium text-center">Connect your bank account to see your finances</p>
-                  <Button onClick={() => navigate("/settings")} data-testid="connect-button">
+                  <p className="text-sm font-medium text-center">
+                    Connect your bank account to see your finances
+                  </p>
+                  <Button
+                    onClick={() => navigate("/app/settings")}
+                    data-testid="connect-button"
+                  >
                     {loading === "connect" ? (
-                      <><Loader2 className="animate-spin" /> Connecting…</>
+                      <>
+                        <Loader2 className="animate-spin" /> Connecting…
+                      </>
                     ) : (
-                      <><LinkIcon className="h-4 w-4" /> Connect Bank</>
+                      <>
+                        <LinkIcon className="h-4 w-4" /> Connect Bank
+                      </>
                     )}
                   </Button>
                 </CardContent>
@@ -197,7 +263,11 @@ export default function HomePage() {
 
       {/* Chart */}
       {hasData && currentMonthIncome !== null && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+        >
           <Card className="bg-zinc-900 text-zinc-100 border-zinc-700">
             <CardContent className="pt-6">
               <IncomeExpenseChart
@@ -214,7 +284,12 @@ export default function HomePage() {
 
       {/* Refresh Button + Transaction Feed */}
       {hasData && transactions.length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="space-y-2">
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="space-y-2"
+        >
           <div className="flex justify-end">
             <Button
               variant="ghost"
@@ -224,7 +299,9 @@ export default function HomePage() {
               data-testid="refresh-transactions-button"
               className="h-8 w-8"
             >
-              <RefreshCw className={`h-4 w-4 ${loading === "refresh" ? "animate-spin" : ""}`} />
+              <RefreshCw
+                className={`h-4 w-4 ${loading === "refresh" ? "animate-spin" : ""}`}
+              />
             </Button>
           </div>
           <TransactionFeed
@@ -236,19 +313,33 @@ export default function HomePage() {
       )}
 
       {/* Transaction Detail Bottom Sheet */}
-      <Drawer open={selectedTx !== null} onOpenChange={(open) => { if (!open) setSelectedTxId(null); }}>
+      <Drawer
+        open={selectedTx !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedTxId(null);
+        }}
+      >
         <DrawerContent data-testid="transaction-dialog">
           <div className="max-h-[70vh] overflow-y-auto px-6 pb-8">
             <DrawerHeader className="px-0">
-              <DrawerTitle className="text-lg">{selectedTx?.counterparty_name ?? "Transaction"}</DrawerTitle>
-              <DrawerDescription className="sr-only">Transaction details</DrawerDescription>
+              <DrawerTitle className="text-lg">
+                {selectedTx?.counterparty_name ?? "Transaction"}
+              </DrawerTitle>
+              <DrawerDescription className="sr-only">
+                Transaction details
+              </DrawerDescription>
             </DrawerHeader>
 
             {/* Amount hero */}
-            <p className={`text-3xl font-bold tracking-tight mt-2 ${selectedTx?.credit_debit === "DBIT" ? "text-expense" : "text-income"}`}>
-              {selectedTx?.credit_debit === "DBIT" ? "-" : "+"}{selectedTx?.amount} {selectedTx?.currency}
+            <p
+              className={`text-3xl font-bold tracking-tight mt-2 ${selectedTx?.credit_debit === "DBIT" ? "text-expense" : "text-income"}`}
+            >
+              {selectedTx?.credit_debit === "DBIT" ? "-" : "+"}
+              {selectedTx?.amount} {selectedTx?.currency}
             </p>
-            <p className="text-sm text-muted-foreground mt-1">{selectedTx?.booking_date}</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {selectedTx?.booking_date}
+            </p>
 
             {/* Remittance info */}
             {selectedTx?.remittance_info && (
@@ -271,7 +362,11 @@ export default function HomePage() {
                   data-testid="ai-evaluate-button"
                   className="gap-1.5"
                 >
-                  {evaluating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                  {evaluating ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5" />
+                  )}
                   AI Evaluate
                 </Button>
               </div>

@@ -53,12 +53,12 @@ export const test = base.extend<TestFixtures>({
 
   connectAndRefresh: async ({ page, request }, use) => {
     await use(async () => {
-      await page.goto("/settings");
+      await page.goto("/app/settings");
       await page.getByTestId("connect-button").click();
       await page.getByTestId("bank-option-bunq").click();
       await page.waitForURL("**/mock-enable-banking/consent**");
       await page.getByTestId("simulate-success").click();
-      await page.waitForURL("**/?connected=true");
+      await page.waitForURL("**/app?connected=true");
 
       const statusRes = await request.get("/api/bank/status");
       const statusData = (await statusRes.json()) as {
@@ -71,7 +71,7 @@ export const test = base.extend<TestFixtures>({
         });
       }
 
-      await page.goto("/settings");
+      await page.goto("/app/settings");
       const refreshBtn = page.getByTestId("refresh-button");
       await expect(refreshBtn).toBeVisible({ timeout: 5_000 });
       await Promise.all([
@@ -86,7 +86,7 @@ export const test = base.extend<TestFixtures>({
   connectAndRefreshHome: async ({ page, connectAndRefresh }, use) => {
     await use(async () => {
       await connectAndRefresh();
-      await page.goto("/");
+      await page.goto("/app");
       const feed = page.getByTestId("transactions-table");
       await expect(feed).toBeVisible({ timeout: 10_000 });
       return feed;

@@ -3,11 +3,12 @@ import { getUserEmail, type EBEnv } from "../lib/enable-banking";
 export const onRequest: PagesFunction<EBEnv> = async (context) => {
   const url = new URL(context.request.url);
 
-  // Don't block the consent endpoint itself, health checks, or the bank callback
+  // Don't block the consent endpoint itself, health checks, auth login, or the bank callback
   // (callback gets user identity from the OAuth state parameter, not headers)
   if (
     url.pathname === "/api/consent" ||
     url.pathname === "/api/health" ||
+    url.pathname === "/api/auth/login" ||
     url.pathname === "/api/bank/callback"
   ) {
     return context.next();

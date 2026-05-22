@@ -29,7 +29,7 @@ test.describe("Auto-refresh on page load", () => {
     const refreshPromise = page.waitForResponse(
       (r) => r.url().includes("/api/bank/refresh") && r.status() === 200,
     );
-    await page.goto("/");
+    await page.goto("/app");
     await refreshPromise;
 
     // Transactions should be visible
@@ -52,7 +52,7 @@ test.describe("Auto-refresh on page load", () => {
       return route.continue();
     });
 
-    await page.goto("/");
+    await page.goto("/app");
     await expect(page.getByTestId("transactions-table")).toBeVisible({
       timeout: 10_000,
     });
@@ -69,7 +69,7 @@ test.describe("Auto-refresh on page load", () => {
     await connectAndRefresh();
 
     // Navigate to homepage (fresh, no auto-refresh)
-    await page.goto("/");
+    await page.goto("/app");
     await expect(page.getByTestId("transactions-table")).toBeVisible({
       timeout: 10_000,
     });
