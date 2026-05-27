@@ -25,6 +25,7 @@ import { useIncomeAnalytics } from "../hooks/useIncomeAnalytics";
 import { useTags } from "../hooks/useTags";
 import { TagSelector } from "../components/TagSelector";
 import { IncomeExpenseChart } from "../components/IncomeExpenseChart";
+import { Skeleton } from "../components/ui/skeleton";
 import { TransactionFeed } from "../components/TransactionFeed";
 import { authHeaders } from "../lib/auth-headers";
 import type { DBTag } from "../../db/types";
@@ -262,7 +263,7 @@ export default function HomePage() {
       )}
 
       {/* Chart */}
-      {hasData && currentMonthIncome !== null && (
+      {hasData && (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -270,13 +271,29 @@ export default function HomePage() {
         >
           <Card className="bg-zinc-900 text-zinc-100 border-zinc-700">
             <CardContent className="pt-6">
-              <IncomeExpenseChart
-                data={chartData}
-                currentIncome={currentMonthIncome}
-                currentExpense={currentMonthExpense ?? 0}
-                hideIncome={hideIncome}
-                compact
-              />
+              {currentMonthIncome !== null ? (
+                <IncomeExpenseChart
+                  data={chartData}
+                  currentIncome={currentMonthIncome}
+                  currentExpense={currentMonthExpense ?? 0}
+                  hideIncome={hideIncome}
+                  compact
+                />
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-baseline gap-6">
+                    <div className="space-y-1">
+                      <Skeleton className="h-3 w-28" />
+                      <Skeleton className="h-7 w-36" />
+                    </div>
+                    <div className="space-y-1">
+                      <Skeleton className="h-3 w-32" />
+                      <Skeleton className="h-7 w-36" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-40 w-full" />
+                </div>
+              )}
             </CardContent>
           </Card>
         </motion.div>

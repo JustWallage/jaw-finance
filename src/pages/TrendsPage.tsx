@@ -17,8 +17,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { IncomeExpenseChart } from "../components/IncomeExpenseChart";
-import { useIncomeAnalytics } from "../hooks/useIncomeAnalytics";
+import { Skeleton } from "../components/ui/skeleton";
 import { useBankConnectionContext } from "../components/BankConnectionProvider";
+import { useIncomeAnalytics } from "../hooks/useIncomeAnalytics";
 import { useOutletContext } from "react-router-dom";
 
 interface QueryResult {
@@ -133,18 +134,32 @@ export default function TrendsPage() {
       <h1 className="text-2xl font-bold tracking-tight">Trends</h1>
 
       {/* Chart */}
-      {currentMonthIncome !== null && (
-        <Card className="bg-zinc-900 text-zinc-100 border-zinc-700">
-          <CardContent className="pt-6">
+      <Card className="bg-zinc-900 text-zinc-100 border-zinc-700">
+        <CardContent className="pt-6">
+          {currentMonthIncome !== null ? (
             <IncomeExpenseChart
               data={chartData}
               currentIncome={currentMonthIncome}
               currentExpense={currentMonthExpense ?? 0}
               hideIncome={hideIncome}
             />
-          </CardContent>
-        </Card>
-      )}
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-baseline gap-6">
+                <div className="space-y-1">
+                  <Skeleton className="h-3 w-28" />
+                  <Skeleton className="h-7 w-36" />
+                </div>
+                <div className="space-y-1">
+                  <Skeleton className="h-3 w-32" />
+                  <Skeleton className="h-7 w-36" />
+                </div>
+              </div>
+              <Skeleton className="h-56 w-full" />
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Tag Query */}
       <TagQuerySearch />
