@@ -35,6 +35,16 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
     const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
     const txId = Number((context.params as { id: string }).id);
 
+    let explanation: string | undefined;
+    try {
+      const body = (await context.request.json()) as {
+        explanation?: string;
+      };
+      explanation = body.explanation?.trim() || undefined;
+    } catch {
+      // No body or invalid JSON — that's fine, explanation is optional
+    }
+
     const tx = await env.DB.prepare(
       "SELECT * FROM transactions WHERE id = ? AND user_email = ?",
     )
@@ -101,6 +111,7 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
       rejected,
       descriptionFrequencies,
       counterpartyFrequencies,
+      explanation,
     );
 
     const useMock =

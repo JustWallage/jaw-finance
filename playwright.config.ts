@@ -14,7 +14,7 @@ export default defineConfig({
   forbidOnly: isCi,
   retries: isCi ? 2 : 0,
   timeout: 360_000,
-  reporter: "html",
+  reporter: "list",
   use: {
     baseURL: isCi ? ciBaseUrl : "http://localhost:8788",
     extraHTTPHeaders,

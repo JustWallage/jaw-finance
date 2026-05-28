@@ -45,7 +45,9 @@ export function useChat() {
         headers: {
           "Content-Type": "application/json",
           ...authHeaders(),
-          "X-Test-Mock-AI": import.meta.env.VITE_MOCK_AI === "1" ? "1" : "",
+          ...(import.meta.env.VITE_MOCK_AI === "1"
+            ? { "X-Test-Mock-AI": "1" }
+            : {}),
         },
         body: JSON.stringify({ question: chatQuestion.trim() }),
       });

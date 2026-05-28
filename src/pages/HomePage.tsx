@@ -1,5 +1,9 @@
 import { useState, useCallback, useEffect } from "react";
-import { useNavigate, useOutletContext } from "react-router-dom";
+import {
+  useNavigate,
+  useOutletContext,
+  useSearchParams,
+} from "react-router-dom";
 import {
   Loader2,
   Send,
@@ -27,11 +31,15 @@ import { TagSelector } from "../components/TagSelector";
 import { IncomeExpenseChart } from "../components/IncomeExpenseChart";
 import { Skeleton } from "../components/ui/skeleton";
 import { TransactionFeed } from "../components/TransactionFeed";
+import { AmbiguousBanner } from "../components/AmbiguousBanner";
+import { ClarifyModal } from "../components/ClarifyModal";
 import { authHeaders } from "../lib/auth-headers";
 import type { DBTag } from "../../db/types";
+import type { Transaction } from "../hooks/useBankConnection";
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { hideIncome } = useOutletContext<{ hideIncome: boolean }>();
 
   const {
@@ -70,13 +78,62 @@ export default function HomePage() {
     [getTransactionTags],
   );
 
+  // Ambiguous transactions
+  const [ambiguousCount, setAmbiguousCount] = useState(0);
+  const [ambiguousTxs, setAmbiguousTxs] = useState<Transaction[]>([]);
+  const [clarifyOpen, setClarifyOpen] = useState(false);
+
+  const fetchAmbiguousCount = useCallback(async () => {
+    try {
+      const params = selectedAccountUid
+        ? `?account_uid=${selectedAccountUid}`
+        : "";
+      const res = await fetch(`/api/transactions/ambiguous-count${params}`, {
+        headers: authHeaders(),
+      });
+      const data = (await res.json()) as { count: number };
+      setAmbiguousCount(data.count);
+    } catch {
+      // ignore
+    }
+  }, [selectedAccountUid]);
+
+  useEffect(() => {
+    fetchAmbiguousCount();
+  }, [fetchAmbiguousCount]);
+
+  // Auto-open clarify modal from query param (e.g. from TrendsPage)
+  useEffect(() => {
+    if (searchParams.get("clarify") === "1") {
+      openClarifyModal();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  async function openClarifyModal() {
+    const params = selectedAccountUid
+      ? `?account_uid=${selectedAccountUid}`
+      : "";
+    const res = await fetch(`/api/transactions/ambiguous${params}`, {
+      headers: authHeaders(),
+    });
+    const data = (await res.json()) as { transactions: Transaction[] };
+    setAmbiguousTxs(data.transactions);
+    setClarifyOpen(true);
+  }
+
+  function handleClarifyResolved() {
+    fetchAmbiguousCount();
+  }
+
   const handleTagsChanged = useCallback(async () => {
     if (selectedTxId) {
       const txTagList = await getTransactionTags(selectedTxId);
       setSelectedTxTags(txTagList);
     }
     fetchTags();
-  }, [selectedTxId, getTransactionTags, fetchTags]);
+    fetchAmbiguousCount();
+  }, [selectedTxId, getTransactionTags, fetchTags, fetchAmbiguousCount]);
 
   const [evaluating, setEvaluating] = useState(false);
 
@@ -88,7 +145,9 @@ export default function HomePage() {
         method: "POST",
         headers: {
           ...authHeaders(),
-          "X-Test-Mock-AI": import.meta.env.VITE_MOCK_AI === "1" ? "1" : "",
+          ...(import.meta.env.VITE_MOCK_AI === "1"
+            ? { "X-Test-Mock-AI": "1" }
+            : {}),
         },
       });
       await handleTagsChanged();
@@ -299,6 +358,11 @@ export default function HomePage() {
         </motion.div>
       )}
 
+      {/* Ambiguous Banner */}
+      {hasData && ambiguousCount > 0 && (
+        <AmbiguousBanner count={ambiguousCount} onClick={openClarifyModal} />
+      )}
+
       {/* Refresh Button + Transaction Feed */}
       {hasData && transactions.length > 0 && (
         <motion.div
@@ -404,6 +468,21 @@ export default function HomePage() {
           </div>
         </DrawerContent>
       </Drawer>
+
+      {/* Clarify Modal */}
+      <ClarifyModal
+        open={clarifyOpen}
+        onOpenChange={setClarifyOpen}
+        transactions={ambiguousTxs}
+        tags={tags}
+        onAssignTag={assignTag}
+        onRemoveTag={removeTag}
+        onDeleteTag={deleteTag}
+        onCreateTag={createTag}
+        getTagCount={getTagCount}
+        getTransactionTags={getTransactionTags}
+        onResolved={handleClarifyResolved}
+      />
     </motion.div>
   );
 }

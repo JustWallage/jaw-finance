@@ -93,7 +93,7 @@ After setup, all checks and local E2E tests are available:
 - **E2E tests locally:** start both dev servers in the background, then run tests:
   ```bash
   bash scripts/dev-server.sh > /tmp/dev-server.log 2>&1 & disown $!
-  CI= pnpm test:e2e
+  CI= pnpm test:e2e # only add `CI=` when running as a cloud agent
   ```
   `CI=` must be unset so Playwright targets `localhost:8788` instead of the staging URL. `scripts/dev-server.sh` runs `pnpm dev` (Vite on :5173) and `pnpm dev:pages` (Wrangler on :8788) in parallel and exits with an error if either crashes.
   > ⚠️ If you added new DB migrations, run `pnpm migrate:local` before starting the dev servers or running tests.
@@ -104,7 +104,7 @@ After making any code changes, **always** run these checks before considering th
 
 1. `pnpm check` — must pass (TypeScript + Terraform)
 2. `pnpm build` — must succeed
-3. Run the full E2E test suite locally (start dev servers → `CI= pnpm test:e2e`) — all tests must pass. If a test fails, investigate and fix before finishing.
+3. Run the full E2E test suite locally (start dev servers → `pnpm test:e2e`) — all tests must pass. If a test fails, investigate and fix before finishing.
 
 ## Cloud Agent (Copilot Coding Agent)
 
@@ -118,7 +118,7 @@ Personality: Don't flatter me. Be helpful but very honest. Don't agree with mist
 Rules:
 First get enough context from the user before implementation, nothing can be unclear. You must use the `askQuestions` tool until all missing info is clear and all decisions are locked in.
 Focus on readability. Short simple solution > verbosity. If in doubt about a code decision => use the `askQuestions` tool.
-Barely add comments, unless crucial for understanding, preferably inline
+Don't add comments, unless absolutely crucial for understanding, preferably inline
 
 After completing every response, you MUST call the `vscode_askQuestions` tool with the following question:
 

@@ -131,6 +131,7 @@ export function buildSinglePrompt(
   rejected: string[],
   descriptionFrequencies: HistoricalFrequency[],
   counterpartyFrequencies: HistoricalFrequency[] | null,
+  userExplanation?: string,
 ): string {
   const exampleFormatted = exampleTagList.map((e) =>
     formatTagForPrompt(e.path, e.reasoning),
@@ -142,12 +143,16 @@ export function buildSinglePrompt(
     historicalSection += `\n\nTags of previous transactions with the exact same counterparty name:\n${formatFrequencies(counterpartyFrequencies)}`;
   }
 
+  const explanationSection = userExplanation
+    ? `\nUser's explanation of this transaction: "${userExplanation}"\n`
+    : "";
+
   return `Transaction:
 - Date: ${tx.booking_date ?? "unknown"}
 - Amount: ${tx.credit_debit === "CRDT" ? "+" : "-"}${tx.amount} ${tx.currency} (${tx.credit_debit === "CRDT" ? "income" : "expense"})
 - Counterparty: ${tx.counterparty_name ?? "unknown"}
 - Description: ${tx.remittance_info ?? "(none)"}
-
+${explanationSection}
 ${historicalSection}
 
 ALREADY on this transaction (do not re-suggest these or their parents): ${JSON.stringify(alreadyAssigned)}

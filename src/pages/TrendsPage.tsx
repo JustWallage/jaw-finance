@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { Check, X, Pencil, Loader2, Search, BotMessageSquare } from "lucide-react";
+import {
+  Check,
+  X,
+  Pencil,
+  Loader2,
+  Search,
+  BotMessageSquare,
+} from "lucide-react";
 import { motion } from "motion/react";
 import type { DBTag, DBTransaction } from "../../db/types";
 import { authHeaders } from "../lib/auth-headers";
@@ -17,16 +24,22 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { IncomeExpenseChart } from "../components/IncomeExpenseChart";
+import { AmbiguousBanner } from "../components/AmbiguousBanner";
 import { Skeleton } from "../components/ui/skeleton";
 import { useBankConnectionContext } from "../components/BankConnectionProvider";
 import { useIncomeAnalytics } from "../hooks/useIncomeAnalytics";
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext, useNavigate } from "react-router-dom";
 
 interface QueryResult {
   transactions: DBTransaction[];
   totalIncome: number;
   totalExpense: number;
-  byPath: { path: string; totalIncome: number; totalExpense: number; count: number }[];
+  byPath: {
+    path: string;
+    totalIncome: number;
+    totalExpense: number;
+    count: number;
+  }[];
 }
 
 type TagStatus = "confirmed" | "unconfirmed" | "rejected";
@@ -40,13 +53,18 @@ async function fetchTagsByStatus(status?: TagStatus): Promise<DBTag[]> {
 }
 
 async function fetchTagTransactions(tagId: number): Promise<DBTransaction[]> {
-  const res = await fetch(`/api/tags/${tagId}/transactions`, { headers: authHeaders() });
+  const res = await fetch(`/api/tags/${tagId}/transactions`, {
+    headers: authHeaders(),
+  });
   if (!res.ok) return [];
   const data = (await res.json()) as { transactions: DBTransaction[] };
   return data.transactions;
 }
 
-async function patchTag(tagId: number, body: { new_name?: string; status?: TagStatus }): Promise<{ ok: boolean; error?: string }> {
+async function patchTag(
+  tagId: number,
+  body: { new_name?: string; status?: TagStatus },
+): Promise<{ ok: boolean; error?: string }> {
   const res = await fetch(`/api/tags/${tagId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", ...authHeaders() },
@@ -62,9 +80,11 @@ function isUserDomainTag(t: DBTag): boolean {
 }
 
 export default function TrendsPage() {
+  const navigate = useNavigate();
   const { selectedAccountUid } = useBankConnectionContext();
   const { hideIncome } = useOutletContext<{ hideIncome: boolean }>();
-  const { currentMonthIncome, currentMonthExpense, pastMonths } = useIncomeAnalytics(selectedAccountUid);
+  const { currentMonthIncome, currentMonthExpense, pastMonths } =
+    useIncomeAnalytics(selectedAccountUid);
 
   const [tags, setTags] = useState<DBTag[]>([]);
   const [rejected, setRejected] = useState<DBTag[]>([]);
@@ -75,28 +95,62 @@ export default function TrendsPage() {
   const [pendingCount, setPendingCount] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
-    const [all, rej] = await Promise.all([fetchTagsByStatus(), fetchTagsByStatus("rejected")]);
+    const [all, rej] = await Promise.all([
+      fetchTagsByStatus(),
+      fetchTagsByStatus("rejected"),
+    ]);
     setTags(all.filter(isUserDomainTag));
     setRejected(rej.filter(isUserDomainTag));
     setLoading(false);
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   const unconfirmed = tags.filter((t) => t.status === "unconfirmed");
   const confirmed = tags.filter((t) => t.status === "confirmed");
 
   async function fetchPendingCount() {
     try {
-      const res = await fetch("/api/transactions/pending-count", { headers: authHeaders() });
+      const res = await fetch("/api/transactions/pending-count", {
+        headers: authHeaders(),
+      });
       if (res.ok) {
         const data = (await res.json()) as { count: number };
         setPendingCount(data.count);
       }
-    } catch { /* non-critical */ }
+    } catch {
+      /* non-critical */
+    }
   }
 
-  useEffect(() => { fetchPendingCount(); }, []);
+  useEffect(() => {
+    fetchPendingCount();
+  }, []);
+
+  const [ambiguousCount, setAmbiguousCount] = useState(0);
+
+  const fetchAmbiguousCount = useCallback(async () => {
+    try {
+      const params = selectedAccountUid
+        ? `?account_uid=${selectedAccountUid}`
+        : "";
+      const res = await fetch(`/api/transactions/ambiguous-count${params}`, {
+        headers: authHeaders(),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { count: number };
+        setAmbiguousCount(data.count);
+      }
+    } catch {
+      /* non-critical */
+    }
+  }, [selectedAccountUid]);
+
+  useEffect(() => {
+    fetchAmbiguousCount();
+  }, [fetchAmbiguousCount]);
 
   async function handleBatchEvaluate() {
     setBatchEvaluating(true);
@@ -105,7 +159,9 @@ export default function TrendsPage() {
         method: "POST",
         headers: {
           ...authHeaders(),
-          ...(import.meta.env.VITE_MOCK_AI === "1" ? { "X-Test-Mock-AI": "1" } : {}),
+          ...(import.meta.env.VITE_MOCK_AI === "1"
+            ? { "X-Test-Mock-AI": "1" }
+            : {}),
         },
       });
       await fetchPendingCount();
@@ -120,7 +176,11 @@ export default function TrendsPage() {
     const now = new Date();
     const currentPeriod = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
     if (!chartData.some((d) => d.period === currentPeriod)) {
-      chartData.push({ period: currentPeriod, income: currentMonthIncome, expense: currentMonthExpense ?? 0 });
+      chartData.push({
+        period: currentPeriod,
+        income: currentMonthIncome,
+        expense: currentMonthExpense ?? 0,
+      });
     }
   }
 
@@ -161,6 +221,14 @@ export default function TrendsPage() {
         </CardContent>
       </Card>
 
+      {/* Ambiguous Banner */}
+      {ambiguousCount > 0 && (
+        <AmbiguousBanner
+          count={ambiguousCount}
+          onClick={() => navigate("/app?clarify=1")}
+        />
+      )}
+
       {/* Tag Query */}
       <TagQuerySearch />
 
@@ -175,13 +243,21 @@ export default function TrendsPage() {
             disabled={batchEvaluating}
             data-testid="batch-evaluate-button"
           >
-            {batchEvaluating ? <Loader2 className="h-3 w-3 animate-spin" /> : <BotMessageSquare className="h-3 w-3" />}
+            {batchEvaluating ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <BotMessageSquare className="h-3 w-3" />
+            )}
             Auto-Tag Pending{pendingCount !== null ? ` (${pendingCount})` : ""}
           </Button>
           <Dialog>
             <DialogTrigger
               render={
-                <Button variant="outline" size="sm" data-testid="view-rejected-button">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  data-testid="view-rejected-button"
+                >
                   Rejected ({rejected.length})
                 </Button>
               }
@@ -189,12 +265,24 @@ export default function TrendsPage() {
             <DialogContent data-testid="rejected-dialog">
               <DialogHeader>
                 <DialogTitle>Rejected Tags</DialogTitle>
-                <DialogDescription>These tags are banned from future AI suggestions.</DialogDescription>
+                <DialogDescription>
+                  These tags are banned from future AI suggestions.
+                </DialogDescription>
               </DialogHeader>
               <div className="flex flex-wrap gap-2">
-                {rejected.length === 0 && <p className="text-sm text-muted-foreground">No rejected tags.</p>}
+                {rejected.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No rejected tags.
+                  </p>
+                )}
                 {rejected.map((t) => (
-                  <Badge key={t.id} variant="secondary" data-testid={`rejected-badge-${t.path}`}>{t.path}</Badge>
+                  <Badge
+                    key={t.id}
+                    variant="secondary"
+                    data-testid={`rejected-badge-${t.path}`}
+                  >
+                    {t.path}
+                  </Badge>
                 ))}
               </div>
             </DialogContent>
@@ -214,7 +302,11 @@ export default function TrendsPage() {
           <CardTitle>Unconfirmed ({unconfirmed.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <TagList tags={unconfirmed} onSelect={setSelectedTag} emptyText="No unconfirmed tags." />
+          <TagList
+            tags={unconfirmed}
+            onSelect={setSelectedTag}
+            emptyText="No unconfirmed tags."
+          />
         </CardContent>
       </Card>
 
@@ -224,21 +316,37 @@ export default function TrendsPage() {
           <CardTitle>Confirmed ({confirmed.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <TagList tags={confirmed} onSelect={setSelectedTag} emptyText="No confirmed tags." />
+          <TagList
+            tags={confirmed}
+            onSelect={setSelectedTag}
+            emptyText="No confirmed tags."
+          />
         </CardContent>
       </Card>
 
       <TagDetailDialog
         tag={selectedTag}
         onClose={() => setSelectedTag(null)}
-        onChanged={async () => { await refresh(); setSelectedTag(null); }}
+        onChanged={async () => {
+          await refresh();
+          setSelectedTag(null);
+        }}
       />
     </motion.div>
   );
 }
 
-function TagList({ tags, onSelect, emptyText }: { tags: DBTag[]; onSelect: (t: DBTag) => void; emptyText: string }) {
-  if (tags.length === 0) return <p className="text-sm text-muted-foreground">{emptyText}</p>;
+function TagList({
+  tags,
+  onSelect,
+  emptyText,
+}: {
+  tags: DBTag[];
+  onSelect: (t: DBTag) => void;
+  emptyText: string;
+}) {
+  if (tags.length === 0)
+    return <p className="text-sm text-muted-foreground">{emptyText}</p>;
   return (
     <div className="flex flex-wrap gap-2">
       {tags.map((t) => (
@@ -256,7 +364,15 @@ function TagList({ tags, onSelect, emptyText }: { tags: DBTag[]; onSelect: (t: D
   );
 }
 
-function TagDetailDialog({ tag, onClose, onChanged }: { tag: DBTag | null; onClose: () => void; onChanged: () => Promise<void> }) {
+function TagDetailDialog({
+  tag,
+  onClose,
+  onChanged,
+}: {
+  tag: DBTag | null;
+  onClose: () => void;
+  onChanged: () => Promise<void>;
+}) {
   const [transactions, setTransactions] = useState<DBTransaction[]>([]);
   const [editing, setEditing] = useState(false);
   const [newName, setNewName] = useState("");
@@ -295,16 +411,26 @@ function TagDetailDialog({ tag, onClose, onChanged }: { tag: DBTag | null; onClo
     setError(null);
     const res = await patchTag(tag.id, { new_name: newName.trim() });
     setBusy(false);
-    if (!res.ok) { setError(res.error ?? "Failed"); return; }
+    if (!res.ok) {
+      setError(res.error ?? "Failed");
+      return;
+    }
     await onChanged();
   }
 
   return (
-    <Dialog open={tag !== null} onOpenChange={(open) => { if (!open) onClose(); }}>
+    <Dialog
+      open={tag !== null}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
       <DialogContent data-testid="tag-detail-dialog">
         <DialogHeader>
           <DialogTitle>{tag?.path}</DialogTitle>
-          <DialogDescription>Status: {tag?.status} · Source: {tag?.source}</DialogDescription>
+          <DialogDescription>
+            Status: {tag?.status} · Source: {tag?.source}
+          </DialogDescription>
         </DialogHeader>
 
         {error && (
@@ -316,35 +442,83 @@ function TagDetailDialog({ tag, onClose, onChanged }: { tag: DBTag | null; onClo
 
         {editing ? (
           <div className="flex items-center gap-2">
-            <Input value={newName} onChange={(e) => setNewName(e.target.value)} data-testid="tag-edit-input" placeholder="New name (no '/')" />
-            <Button size="sm" onClick={handleSaveEdit} disabled={busy || !newName.trim()} data-testid="tag-edit-save">Save</Button>
-            <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>Cancel</Button>
+            <Input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              data-testid="tag-edit-input"
+              placeholder="New name (no '/')"
+            />
+            <Button
+              size="sm"
+              onClick={handleSaveEdit}
+              disabled={busy || !newName.trim()}
+              data-testid="tag-edit-save"
+            >
+              Save
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+              Cancel
+            </Button>
           </div>
         ) : (
           <div className="flex flex-wrap gap-2">
             {tag?.status === "unconfirmed" && (
-              <Button size="sm" onClick={handleConfirm} disabled={busy} data-testid="tag-confirm-button">
+              <Button
+                size="sm"
+                onClick={handleConfirm}
+                disabled={busy}
+                data-testid="tag-confirm-button"
+              >
                 <Check className="h-3 w-3" /> Confirm
               </Button>
             )}
-            <Button size="sm" variant="destructive" onClick={handleReject} disabled={busy} data-testid="tag-reject-button">
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={handleReject}
+              disabled={busy}
+              data-testid="tag-reject-button"
+            >
               <X className="h-3 w-3" /> Reject
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setEditing(true)} disabled={busy} data-testid="tag-edit-button">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setEditing(true)}
+              disabled={busy}
+              data-testid="tag-edit-button"
+            >
               <Pencil className="h-3 w-3" /> Edit name
             </Button>
           </div>
         )}
 
         <div>
-          <p className="mb-2 text-sm font-medium">Linked transactions ({transactions.length})</p>
+          <p className="mb-2 text-sm font-medium">
+            Linked transactions ({transactions.length})
+          </p>
           <div className="max-h-64 overflow-y-auto space-y-1">
-            {transactions.length === 0 && <p className="text-sm text-muted-foreground">No transactions linked.</p>}
+            {transactions.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No transactions linked.
+              </p>
+            )}
             {transactions.map((tx) => (
-              <div key={tx.id} className="flex justify-between text-sm border-b border-border py-1" data-testid={`tag-tx-${tx.id}`}>
-                <span className="truncate">{tx.booking_date} · {tx.counterparty_name ?? "—"}</span>
-                <span className={tx.credit_debit === "CRDT" ? "text-income" : "text-expense"}>
-                  {tx.credit_debit === "DBIT" ? "-" : "+"}{tx.amount} {tx.currency}
+              <div
+                key={tx.id}
+                className="flex justify-between text-sm border-b border-border py-1"
+                data-testid={`tag-tx-${tx.id}`}
+              >
+                <span className="truncate">
+                  {tx.booking_date} · {tx.counterparty_name ?? "—"}
+                </span>
+                <span
+                  className={
+                    tx.credit_debit === "CRDT" ? "text-income" : "text-expense"
+                  }
+                >
+                  {tx.credit_debit === "DBIT" ? "-" : "+"}
+                  {tx.amount} {tx.currency}
                 </span>
               </div>
             ))}
@@ -371,13 +545,23 @@ function TagQuerySearch() {
       const res = await fetch("/api/transactions/by-tags", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ queries: [{ tagGlobs: [glob.trim()], ...(startDate ? { startDate } : {}), ...(endDate ? { endDate } : {}) }] }),
+        body: JSON.stringify({
+          queries: [
+            {
+              tagGlobs: [glob.trim()],
+              ...(startDate ? { startDate } : {}),
+              ...(endDate ? { endDate } : {}),
+            },
+          ],
+        }),
       });
       if (!res.ok) {
-        const body = await res.json().catch(() => ({})) as { error?: string };
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error ?? "Request failed");
       }
-      const raw = (await res.json()) as Omit<QueryResult, "byPath"> & { byPath?: QueryResult["byPath"] };
+      const raw = (await res.json()) as Omit<QueryResult, "byPath"> & {
+        byPath?: QueryResult["byPath"];
+      };
       setResult({ ...raw, byPath: raw.byPath ?? [] });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
@@ -395,19 +579,46 @@ function TagQuerySearch() {
         <CardContent>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
             <div className="flex-1">
-              <label className="text-xs text-muted-foreground">Glob Pattern</label>
-              <Input placeholder="e.g. vacation/*/food" value={glob} onChange={(e) => setGlob(e.target.value)} data-testid="query-glob-input" />
+              <label className="text-xs text-muted-foreground">
+                Glob Pattern
+              </label>
+              <Input
+                placeholder="e.g. vacation/*/food"
+                value={glob}
+                onChange={(e) => setGlob(e.target.value)}
+                data-testid="query-glob-input"
+              />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Start Date</label>
-              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} data-testid="query-start-date" />
+              <label className="text-xs text-muted-foreground">
+                Start Date
+              </label>
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                data-testid="query-start-date"
+              />
             </div>
             <div>
               <label className="text-xs text-muted-foreground">End Date</label>
-              <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} data-testid="query-end-date" />
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                data-testid="query-end-date"
+              />
             </div>
-            <Button onClick={handleSearch} disabled={searching || !glob.trim()} data-testid="query-search-button">
-              {searching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+            <Button
+              onClick={handleSearch}
+              disabled={searching || !glob.trim()}
+              data-testid="query-search-button"
+            >
+              {searching ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
               Search
             </Button>
           </div>
@@ -420,24 +631,52 @@ function TagQuerySearch() {
         </CardContent>
       </Card>
 
-      <Dialog open={result !== null} onOpenChange={(open) => { if (!open) setResult(null); }}>
-        <DialogContent data-testid="query-results-dialog" className="sm:max-w-lg">
+      <Dialog
+        open={result !== null}
+        onOpenChange={(open) => {
+          if (!open) setResult(null);
+        }}
+      >
+        <DialogContent
+          data-testid="query-results-dialog"
+          className="sm:max-w-lg"
+        >
           <DialogHeader>
             <DialogTitle>Query Results</DialogTitle>
-            <DialogDescription>{result?.transactions.length ?? 0} transactions matched</DialogDescription>
+            <DialogDescription>
+              {result?.transactions.length ?? 0} transactions matched
+            </DialogDescription>
           </DialogHeader>
           <div className="flex gap-4 text-sm font-medium">
-            <span className="text-income" data-testid="query-total-income">Income: {result?.totalIncome.toFixed(2)}</span>
-            <span className="text-expense" data-testid="query-total-expense">Expense: {result?.totalExpense.toFixed(2)}</span>
+            <span className="text-income" data-testid="query-total-income">
+              Income: {result?.totalIncome.toFixed(2)}
+            </span>
+            <span className="text-expense" data-testid="query-total-expense">
+              Expense: {result?.totalExpense.toFixed(2)}
+            </span>
           </div>
           {result?.byPath && result.byPath.length > 0 && (
             <div data-testid="query-by-path" className="space-y-1">
               {result.byPath.map((p) => (
-                <div key={p.path} className="flex items-center justify-between text-xs" data-testid={`query-path-${p.path}`}>
-                  <span className="text-muted-foreground font-mono">{p.path}</span>
+                <div
+                  key={p.path}
+                  className="flex items-center justify-between text-xs"
+                  data-testid={`query-path-${p.path}`}
+                >
+                  <span className="text-muted-foreground font-mono">
+                    {p.path}
+                  </span>
                   <span className="flex gap-3 shrink-0">
-                    {p.totalIncome > 0 && <span className="text-income">+{p.totalIncome.toFixed(2)}</span>}
-                    {p.totalExpense > 0 && <span className="text-expense">-{p.totalExpense.toFixed(2)}</span>}
+                    {p.totalIncome > 0 && (
+                      <span className="text-income">
+                        +{p.totalIncome.toFixed(2)}
+                      </span>
+                    )}
+                    {p.totalExpense > 0 && (
+                      <span className="text-expense">
+                        -{p.totalExpense.toFixed(2)}
+                      </span>
+                    )}
                     <span className="text-muted-foreground">{p.count} tx</span>
                   </span>
                 </div>
@@ -445,12 +684,27 @@ function TagQuerySearch() {
             </div>
           )}
           <div className="max-h-72 overflow-y-auto space-y-1">
-            {result?.transactions.length === 0 && <p className="text-sm text-muted-foreground">No transactions found.</p>}
+            {result?.transactions.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No transactions found.
+              </p>
+            )}
             {result?.transactions.map((tx) => (
-              <div key={tx.id} className="flex justify-between text-sm border-b border-border py-1" data-testid={`query-tx-${tx.id}`}>
-                <span className="truncate">{tx.booking_date} · {tx.counterparty_name ?? "—"}</span>
-                <span className={tx.credit_debit === "CRDT" ? "text-income" : "text-expense"}>
-                  {tx.credit_debit === "DBIT" ? "-" : "+"}{tx.amount} {tx.currency}
+              <div
+                key={tx.id}
+                className="flex justify-between text-sm border-b border-border py-1"
+                data-testid={`query-tx-${tx.id}`}
+              >
+                <span className="truncate">
+                  {tx.booking_date} · {tx.counterparty_name ?? "—"}
+                </span>
+                <span
+                  className={
+                    tx.credit_debit === "CRDT" ? "text-income" : "text-expense"
+                  }
+                >
+                  {tx.credit_debit === "DBIT" ? "-" : "+"}
+                  {tx.amount} {tx.currency}
                 </span>
               </div>
             ))}
