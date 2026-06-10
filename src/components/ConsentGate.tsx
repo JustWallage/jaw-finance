@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { authHeaders } from "../lib/auth-headers";
+import { apiFetch } from "../lib/api";
 import {
   Dialog,
   DialogContent,
@@ -15,17 +15,13 @@ export function ConsentGate({ children }: { children: React.ReactNode }) {
   );
 
   useEffect(() => {
-    fetch("/api/consent", { headers: authHeaders() })
-      .then((r) => r.json())
-      .then((d) => {
-        const data = d as { consented: boolean };
-        setStatus(data.consented ? "granted" : "needed");
-      })
+    apiFetch<{ consented: boolean }>("/api/consent")
+      .then((data) => setStatus(data.consented ? "granted" : "needed"))
       .catch(() => setStatus("needed"));
   }, []);
 
   const accept = async () => {
-    await fetch("/api/consent", { method: "POST", headers: authHeaders() });
+    await apiFetch("/api/consent", { method: "POST" });
     setStatus("granted");
   };
 

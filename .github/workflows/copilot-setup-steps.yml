@@ -54,6 +54,7 @@ jobs:
           cat > .dev.vars <<VARS
           ENABLE_BANKING_APP_ID=dummy-app-id
           ENABLE_BANKING_SECRET="${DUMMY_KEY}"
+          STATE_SECRET=dummy-state-secret
           VARS
 
       - name: Build

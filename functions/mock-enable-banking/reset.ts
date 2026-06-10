@@ -10,7 +10,7 @@ export const onRequestPost: PagesFunction<MockEnv> = async (context) => {
   }
 
   const { env } = context;
-  const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
+  const userEmail = getUserEmail(context.request, env);
 
   await env.DB.batch([
     env.DB.prepare(

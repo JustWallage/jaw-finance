@@ -5,6 +5,8 @@ export interface EBEnv {
   ENABLE_BANKING_SECRET: string;
   ENABLE_BANKING_API_URL: string;
   ENABLE_BANKING_CALLBACK_URL: string;
+  STATE_SECRET: string;
+  TEST_AUTH_TOKEN?: string;
   ENVIRONMENT?: string;
 }
 
@@ -76,14 +78,21 @@ export async function ebFetch(
 }
 
 /** Extract authenticated user email from Cloudflare Access header.
- *  In staging, also accepts X-Test-User-Email (CF Access service tokens
- *  don't populate the email header). */
-export function getUserEmail(request: Request, environment?: string): string {
-  const email =
-    request.headers.get("Cf-Access-Authenticated-User-Email") ??
-    (environment === "staging"
-      ? request.headers.get("X-Test-User-Email")
-      : null);
-  if (!email) throw new Error("Missing user identity");
-  return email;
+ *  In staging only, also accepts X-Test-User-Email (CF Access service tokens
+ *  don't populate the email header), gated behind the X-Test-Auth token. */
+export function getUserEmail(
+  request: Request,
+  env: { ENVIRONMENT?: string; TEST_AUTH_TOKEN?: string },
+): string {
+  const accessEmail = request.headers.get("Cf-Access-Authenticated-User-Email");
+  if (accessEmail) return accessEmail;
+
+  if (env.ENVIRONMENT === "staging" && env.TEST_AUTH_TOKEN) {
+    const testEmail = request.headers.get("X-Test-User-Email");
+    if (testEmail && request.headers.get("X-Test-Auth") === env.TEST_AUTH_TOKEN) {
+      return testEmail;
+    }
+  }
+
+  throw new Error("Missing user identity");
 }

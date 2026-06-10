@@ -1,5 +1,5 @@
 import type { DBTransaction } from "../../db/types";
-import { exampleTagList } from "../api/transactions/[id]/example-tags";
+import { exampleTagList } from "./example-tags";
 
 export const MAX_NEW_TAGS = 5;
 

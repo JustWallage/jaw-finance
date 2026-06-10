@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { TagSelector } from "./TagSelector";
-import { authHeaders } from "../lib/auth-headers";
+import { apiFetch } from "../lib/api";
 
 interface Props {
   open: boolean;
@@ -96,10 +96,9 @@ export function ClarifyModal({
     if (!tx || !explanation.trim()) return;
     setSubmitting(true);
     try {
-      await fetch(`/api/transactions/${tx.id}/evaluate`, {
+      await apiFetch(`/api/transactions/${tx.id}/evaluate`, {
         method: "POST",
         headers: {
-          ...authHeaders(),
           "Content-Type": "application/json",
           ...(import.meta.env.VITE_MOCK_AI === "1"
             ? { "X-Test-Mock-AI": "1" }

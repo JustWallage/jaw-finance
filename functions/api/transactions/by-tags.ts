@@ -10,7 +10,7 @@ interface ByTagsRequest {
 export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
   const { env } = context;
   try {
-    const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
+    const userEmail = getUserEmail(context.request, env);
     const body = (await context.request.json()) as ByTagsRequest;
 
     // Backward compat: convert legacy `paths` to queries with glob patterns

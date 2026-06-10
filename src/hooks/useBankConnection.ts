@@ -1,14 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { DBBankConnection, DBTransaction } from "../../db/types";
 import { useLocalStorage } from "./useLocalStorage";
+import { apiFetch } from "../lib/api";
 
 const TWO_HOURS = 2 * 60 * 60 * 1000;
 const FIVE_MINUTES = 5 * 60 * 1000;
-
-function authHeaders(): HeadersInit {
-  const email = import.meta.env.VITE_DEV_USER_EMAIL;
-  return email ? { "Cf-Access-Authenticated-User-Email": email } : {};
-}
 
 /** Subset of DBBankConnection fields returned by the status API. */
 export type Connection = Pick<
@@ -70,12 +66,10 @@ export function useBankConnection() {
 
   async function fetchStatus() {
     try {
-      const res = await fetch("/api/bank/status", { headers: authHeaders() });
-      if (!res.ok) return;
-      const data = (await res.json()) as {
+      const data = await apiFetch<{
         connections: Connection[];
         user_email?: string;
-      };
+      }>("/api/bank/status");
       setConnections(data.connections);
       if (data.user_email) setUserEmail(data.user_email);
     } catch {
@@ -146,9 +140,7 @@ export function useBankConnection() {
       const url = qs
         ? `/api/bank/transactions?${qs}`
         : "/api/bank/transactions";
-      const res = await fetch(url, { headers: authHeaders() });
-      if (!res.ok) return;
-      const data = (await res.json()) as { transactions: Transaction[] };
+      const data = await apiFetch<{ transactions: Transaction[] }>(url);
       if (since) {
         setTransactions((prev) => {
           const existingIds = new Set(prev.map((t) => t.id));
@@ -169,13 +161,15 @@ export function useBankConnection() {
     setLoading("connect");
     setError("");
     try {
-      const res = await fetch("/api/bank/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ aspsp }),
-      });
-      const data = (await res.json()) as { url?: string; error?: string };
-      if (!res.ok || !data.url) {
+      const data = await apiFetch<{ url?: string; error?: string }>(
+        "/api/bank/auth",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ aspsp }),
+        },
+      );
+      if (!data.url) {
         setError(data.error ?? "Failed to start bank connection");
         setLoading(null);
         return;
@@ -193,18 +187,13 @@ export function useBankConnection() {
     lastRefreshAttempt.current = Date.now();
     try {
       const latestDate = transactions[0]?.booking_date ?? undefined;
-      const res = await fetch("/api/bank/refresh", {
-        method: "POST",
-        headers: authHeaders(),
-      });
-      const data = (await res.json()) as { synced?: number; error?: string };
-      if (!res.ok) {
-        setError(data.error ?? "Refresh failed");
+      try {
+        await apiFetch("/api/bank/refresh", { method: "POST" });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Refresh failed");
       }
       await fetchStatus();
       await fetchTransactions(latestDate, selectedAccountUid);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Network error");
     } finally {
       setLoading(null);
     }
@@ -265,22 +254,18 @@ export function useBankConnection() {
         });
         setImportProgress(`Importing: ${monthLabel}…`);
 
-        const res = await fetch("/api/bank/import", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...authHeaders() },
-          body: JSON.stringify({
-            account_uid: activeConnection.account_uid,
-            date_from: dateFrom,
-            date_to: dateTo,
-          }),
-        });
-
-        const data = (await res.json()) as {
-          synced?: number;
-          error?: string;
-        };
-        if (!res.ok) {
-          setError(data.error ?? "Import failed");
+        try {
+          await apiFetch("/api/bank/import", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              account_uid: activeConnection.account_uid,
+              date_from: dateFrom,
+              date_to: dateTo,
+            }),
+          });
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Import failed");
           break;
         }
       }

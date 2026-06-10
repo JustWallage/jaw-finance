@@ -1,5 +1,8 @@
 import { getUserEmail, type EBEnv } from "../lib/enable-banking";
+import { isProduction } from "../lib/env";
+import { enforceRateLimit } from "../lib/rate-limit";
 import { executeTagQuery, type QueryObject } from "../lib/query-utils";
+import { AI_MODEL } from "../lib/ai-model";
 import { extractAIText, parseQueryArray } from "../lib/ai-response";
 import type { DBTag } from "../../db/types";
 
@@ -45,7 +48,10 @@ function mockSummaryResponse(
 export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
   const { env } = context;
   try {
-    const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
+    const userEmail = getUserEmail(context.request, env);
+    const limited = await enforceRateLimit(env.DB, userEmail, "chat", 30, 3600);
+    if (limited) return limited;
+
     const body = (await context.request.json()) as { question: string };
 
     if (
@@ -59,7 +65,7 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
     const question = body.question.trim();
 
     const useMock =
-      env.ENVIRONMENT !== "production" &&
+      !isProduction(env.ENVIRONMENT) &&
       context.request.headers.get("X-Test-Mock-AI") === "1";
 
     // Fetch user tags (confirmed + unconfirmed, excluding rejected)
@@ -80,21 +86,13 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
         new Date().toISOString(),
       ).replace("{{TAGS}}", JSON.stringify(tagPaths));
 
-      const aiResp = await env.AI.run(
-        "@cf/meta/llama-3.3-70b-instruct-fp8-fast" satisfies Parameters<
-          typeof env.AI.run
-        >[0],
-        {
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: question },
-          ],
-          max_tokens: 500,
-        },
-      );
-      console.log(
-        `[chat] Pass 1 input: system=${systemPrompt}\nuser=${question}\n[chat] Pass 1 output:\n${JSON.stringify(aiResp)}`,
-      );
+      const aiResp = await env.AI.run(AI_MODEL, {
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: question },
+        ],
+        max_tokens: 500,
+      });
 
       const parsed = parseQueryArray(aiResp);
       if (!parsed || parsed.length === 0) {
@@ -133,22 +131,13 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
               .join("\n")
           : "";
       const summaryUserMsg = `Question: "${question}"\nResults: ${result.transactions.length} transactions, total income: ${result.totalIncome.toFixed(2)} EUR, total expenses: ${result.totalExpense.toFixed(2)} EUR.${breakdownStr}`;
-      console.log(
-        `[chat] Pass 2 input: system=${SUMMARY_SYSTEM_PROMPT}\nuser=${summaryUserMsg}`,
-      );
-      const summaryResp = await env.AI.run(
-        "@cf/meta/llama-3.3-70b-instruct-fp8-fast" satisfies Parameters<
-          typeof env.AI.run
-        >[0],
-        {
-          messages: [
-            { role: "system", content: SUMMARY_SYSTEM_PROMPT },
-            { role: "user", content: summaryUserMsg },
-          ],
-          max_tokens: 150,
-        },
-      );
-      console.log(`[chat] Pass 2 output:\n${JSON.stringify(summaryResp)}`);
+      const summaryResp = await env.AI.run(AI_MODEL, {
+        messages: [
+          { role: "system", content: SUMMARY_SYSTEM_PROMPT },
+          { role: "user", content: summaryUserMsg },
+        ],
+        max_tokens: 150,
+      });
       summary = extractAIText(summaryResp).trim() || "Here are your results.";
     }
 
@@ -161,9 +150,6 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
     });
   } catch (err) {
     console.error("[chat] Error:", err);
-    return Response.json(
-      { error: err instanceof Error ? err.message : "Unknown error" },
-      { status: 500 },
-    );
+    return Response.json({ error: "Internal error" }, { status: 500 });
   }
 };

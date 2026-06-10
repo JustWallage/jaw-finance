@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import type { DBTag } from "../../db/types";
-import { authHeaders } from "../lib/auth-headers";
+import { apiFetch } from "../lib/api";
 
 export function useTags() {
   const [tags, setTags] = useState<DBTag[]>([]);
 
   const fetchTags = useCallback(async () => {
-    const res = await fetch("/api/tags", { headers: authHeaders() });
-    if (!res.ok) return;
-    const data = (await res.json()) as { tags: DBTag[] };
-    setTags(data.tags);
+    try {
+      const data = await apiFetch<{ tags: DBTag[] }>("/api/tags");
+      setTags(data.tags);
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   useEffect(() => {
@@ -17,60 +19,73 @@ export function useTags() {
   }, [fetchTags]);
 
   async function createTag(name: string, path: string): Promise<DBTag | null> {
-    const res = await fetch("/api/tags", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify({ name, path }),
-    });
-    if (!res.ok) return null;
-    const data = (await res.json()) as { tag: DBTag };
-    await fetchTags();
-    return data.tag;
+    try {
+      const data = await apiFetch<{ tag: DBTag }>("/api/tags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, path }),
+      });
+      await fetchTags();
+      return data.tag;
+    } catch {
+      return null;
+    }
   }
 
   async function deleteTag(tagId: number): Promise<boolean> {
-    const res = await fetch(`/api/tags/${tagId}`, {
-      method: "DELETE",
-      headers: authHeaders(),
-    });
-    if (!res.ok) return false;
-    await fetchTags();
-    return true;
+    try {
+      await apiFetch(`/api/tags/${tagId}`, { method: "DELETE" });
+      await fetchTags();
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async function getTagCount(tagId: number): Promise<number> {
-    const res = await fetch(`/api/tags/${tagId}/count`, {
-      headers: authHeaders(),
-    });
-    if (!res.ok) return 0;
-    const data = (await res.json()) as { count: number };
-    return data.count;
+    try {
+      const data = await apiFetch<{ count: number }>(
+        `/api/tags/${tagId}/count`,
+      );
+      return data.count;
+    } catch {
+      return 0;
+    }
   }
 
   async function getTransactionTags(txId: number): Promise<DBTag[]> {
-    const res = await fetch(`/api/transactions/${txId}/tags`, {
-      headers: authHeaders(),
-    });
-    if (!res.ok) return [];
-    const data = (await res.json()) as { tags: DBTag[] };
-    return data.tags;
+    try {
+      const data = await apiFetch<{ tags: DBTag[] }>(
+        `/api/transactions/${txId}/tags`,
+      );
+      return data.tags;
+    } catch {
+      return [];
+    }
   }
 
   async function assignTag(txId: number, tagId: number): Promise<boolean> {
-    const res = await fetch(`/api/transactions/${txId}/tags`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", ...authHeaders() },
-      body: JSON.stringify({ tag_id: tagId }),
-    });
-    return res.ok;
+    try {
+      await apiFetch(`/api/transactions/${txId}/tags`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tag_id: tagId }),
+      });
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   async function removeTag(txId: number, tagId: number): Promise<boolean> {
-    const res = await fetch(`/api/transactions/${txId}/tags/${tagId}`, {
-      method: "DELETE",
-      headers: authHeaders(),
-    });
-    return res.ok;
+    try {
+      await apiFetch(`/api/transactions/${txId}/tags/${tagId}`, {
+        method: "DELETE",
+      });
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   return {

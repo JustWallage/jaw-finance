@@ -15,7 +15,7 @@ _Avoid_: Category, label, folder
 **Leaf tag**: The deepest tag explicitly assigned to a transaction. Ancestors exist in the `tags` table but are not linked via `transaction_tags`.
 _Avoid_: Child tag, end node
 
-**Evaluation**: The process of asking an LLM to suggest tags for a transaction. Can be single (one transaction) or batch (up to 50).
+**Evaluation**: The process of asking an LLM to suggest tags for a transaction. Can be single (one transaction) or batch.
 _Avoid_: Classification, categorization, tagging
 
 **RAG context**: Historical tag frequency data injected into the LLM prompt. Shows how often the user tagged similar past transactions with each tag.

@@ -8,7 +8,7 @@ import { evaluateMerchantPatterns } from "../../lib/merchant-patterns";
 export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
   const { env } = context;
   try {
-    const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
+    const userEmail = getUserEmail(context.request, env);
 
     const rows = await env.DB.prepare(
       `SELECT id, remittance_info, counterparty_name FROM transactions

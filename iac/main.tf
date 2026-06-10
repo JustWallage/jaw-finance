@@ -85,10 +85,11 @@ resource "cloudflare_zero_trust_access_application" "jaw_finance" {
   depends_on = [cloudflare_pages_domain.jaw_finance_domain]
 
   policies = [{
-    name     = "Allow Google login"
+    name     = "Allow owner only"
     decision = "allow"
-    include = [{
-      everyone = {}
-    }]
+    include = [
+      { email = { email = "just@wallage.nl" } },
+      { email = { email = "just+cloudflare@wallage.nl" } },
+    ]
   }]
 }

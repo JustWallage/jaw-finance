@@ -4,7 +4,7 @@ import type { DBTag } from "../../../../db/types";
 export const onRequestDelete: PagesFunction<EBEnv> = async (context) => {
   const { env } = context;
   try {
-    const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
+    const userEmail = getUserEmail(context.request, env);
     const tagId = (context.params as { id: string }).id;
 
     const tag = await env.DB.prepare(
@@ -43,7 +43,7 @@ export const onRequestDelete: PagesFunction<EBEnv> = async (context) => {
 export const onRequestPatch: PagesFunction<EBEnv> = async (context) => {
   const { env } = context;
   try {
-    const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
+    const userEmail = getUserEmail(context.request, env);
     const tagId = Number((context.params as { id: string }).id);
     const body = (await context.request.json()) as {
       new_name?: string;

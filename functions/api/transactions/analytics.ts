@@ -9,7 +9,7 @@ interface MonthRow {
 export const onRequestGet: PagesFunction<EBEnv> = async (context) => {
   const { env } = context;
   try {
-    const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
+    const userEmail = getUserEmail(context.request, env);
     const url = new URL(context.request.url);
 
     const accountUid = url.searchParams.get("account_uid");

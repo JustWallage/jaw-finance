@@ -3,7 +3,7 @@ import { getUserEmail, type EBEnv } from "../../../../lib/enable-banking";
 export const onRequestDelete: PagesFunction<EBEnv> = async (context) => {
   const { env } = context;
   try {
-    const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
+    const userEmail = getUserEmail(context.request, env);
     const params = context.params as { id: string; tagId: string };
 
     // Verify transaction belongs to user

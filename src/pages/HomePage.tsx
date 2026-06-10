@@ -27,13 +27,14 @@ import {
 import { useBankConnectionContext } from "../components/BankConnectionProvider";
 import { useIncomeAnalytics } from "../hooks/useIncomeAnalytics";
 import { useTags } from "../hooks/useTags";
+import { useAmbiguousCount } from "../hooks/useAmbiguousCount";
 import { TagSelector } from "../components/TagSelector";
 import { IncomeExpenseChart } from "../components/IncomeExpenseChart";
 import { Skeleton } from "../components/ui/skeleton";
 import { TransactionFeed } from "../components/TransactionFeed";
 import { AmbiguousBanner } from "../components/AmbiguousBanner";
 import { ClarifyModal } from "../components/ClarifyModal";
-import { authHeaders } from "../lib/auth-headers";
+import { apiFetch } from "../lib/api";
 import type { DBTag } from "../../db/types";
 import type { Transaction } from "../hooks/useBankConnection";
 
@@ -79,30 +80,12 @@ export default function HomePage() {
   );
 
   // Ambiguous transactions
-  const [ambiguousCount, setAmbiguousCount] = useState(0);
+  const { ambiguousCount, fetchAmbiguousCount } =
+    useAmbiguousCount(selectedAccountUid);
   const [ambiguousTxs, setAmbiguousTxs] = useState<Transaction[]>([]);
   const [clarifyOpen, setClarifyOpen] = useState(false);
 
-  const fetchAmbiguousCount = useCallback(async () => {
-    try {
-      const params = selectedAccountUid
-        ? `?account_uid=${selectedAccountUid}`
-        : "";
-      const res = await fetch(`/api/transactions/ambiguous-count${params}`, {
-        headers: authHeaders(),
-      });
-      const data = (await res.json()) as { count: number };
-      setAmbiguousCount(data.count);
-    } catch {
-      // ignore
-    }
-  }, [selectedAccountUid]);
-
-  useEffect(() => {
-    fetchAmbiguousCount();
-  }, [fetchAmbiguousCount]);
-
-  // Auto-open clarify modal from query param (e.g. from TrendsPage)
+  // Auto-open clarify modal from query param (e.g. from TagsPage)
   useEffect(() => {
     if (searchParams.get("clarify") === "1") {
       openClarifyModal();
@@ -114,10 +97,9 @@ export default function HomePage() {
     const params = selectedAccountUid
       ? `?account_uid=${selectedAccountUid}`
       : "";
-    const res = await fetch(`/api/transactions/ambiguous${params}`, {
-      headers: authHeaders(),
-    });
-    const data = (await res.json()) as { transactions: Transaction[] };
+    const data = await apiFetch<{ transactions: Transaction[] }>(
+      `/api/transactions/ambiguous${params}`,
+    );
     setAmbiguousTxs(data.transactions);
     setClarifyOpen(true);
   }
@@ -141,10 +123,9 @@ export default function HomePage() {
     if (!selectedTxId) return;
     setEvaluating(true);
     try {
-      await fetch(`/api/transactions/${selectedTxId}/evaluate`, {
+      await apiFetch(`/api/transactions/${selectedTxId}/evaluate`, {
         method: "POST",
         headers: {
-          ...authHeaders(),
           ...(import.meta.env.VITE_MOCK_AI === "1"
             ? { "X-Test-Mock-AI": "1" }
             : {}),

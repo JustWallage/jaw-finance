@@ -30,6 +30,7 @@ export const test = base.extend<TestFixtures>({
 
   extraHTTPHeaders: async ({ userEmail, mockAI }, use) => {
     const headers: Record<string, string> = { [userEmailHeader]: userEmail };
+    if (isCi) headers["X-Test-Auth"] = process.env.TEST_AUTH_TOKEN ?? "";
     if (mockAI) headers["X-Test-Mock-AI"] = "1";
     await use(headers);
   },
@@ -43,7 +44,12 @@ export const test = base.extend<TestFixtures>({
       if (autoConsent) {
         await request.post("/mock-enable-banking/reset");
         await request.post("/api/consent", {
-          headers: { [userEmailHeader]: userEmail },
+          headers: {
+            [userEmailHeader]: userEmail,
+            ...(isCi
+              ? { "X-Test-Auth": process.env.TEST_AUTH_TOKEN ?? "" }
+              : {}),
+          },
         });
       }
       await use();

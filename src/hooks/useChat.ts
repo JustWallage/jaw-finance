@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { authHeaders } from "../lib/auth-headers";
+import { apiFetch } from "../lib/api";
 import type { DBTransaction } from "../../db/types";
 
 export interface ChatResult {
@@ -40,18 +40,7 @@ export function useChat() {
     setChatResult(null);
     setChatExpanded(false);
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...authHeaders(),
-          ...(import.meta.env.VITE_MOCK_AI === "1"
-            ? { "X-Test-Mock-AI": "1" }
-            : {}),
-        },
-        body: JSON.stringify({ question: chatQuestion.trim() }),
-      });
-      const data = (await res.json()) as {
+      const data = await apiFetch<{
         error?: string;
         summary: string;
         transactions: DBTransaction[];
@@ -63,7 +52,16 @@ export function useChat() {
           totalExpense: number;
           count: number;
         }[];
-      };
+      }>("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(import.meta.env.VITE_MOCK_AI === "1"
+            ? { "X-Test-Mock-AI": "1" }
+            : {}),
+        },
+        body: JSON.stringify({ question: chatQuestion.trim() }),
+      });
       if (data.error) throw new Error(data.error);
       setChatResult({ ...data, byPath: data.byPath ?? [] });
     } catch {

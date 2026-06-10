@@ -3,7 +3,7 @@ import { getUserEmail, type EBEnv } from "../../lib/enable-banking";
 export const onRequestPatch: PagesFunction<EBEnv> = async (context) => {
   const { env, request } = context;
   try {
-    const userEmail = getUserEmail(request, env.ENVIRONMENT);
+    const userEmail = getUserEmail(request, env);
     const body = (await request.json()) as {
       nicknames: Record<string, string>;
     };

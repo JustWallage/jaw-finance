@@ -5,7 +5,7 @@ import type { DBTag } from "../../../../db/types";
 export const onRequestGet: PagesFunction<EBEnv> = async (context) => {
   const { env } = context;
   try {
-    const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
+    const userEmail = getUserEmail(context.request, env);
     const txId = (context.params as { id: string }).id;
 
     const tx = await env.DB.prepare(
@@ -38,7 +38,7 @@ export const onRequestGet: PagesFunction<EBEnv> = async (context) => {
 export const onRequestPut: PagesFunction<EBEnv> = async (context) => {
   const { env } = context;
   try {
-    const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
+    const userEmail = getUserEmail(context.request, env);
     const txId = Number((context.params as { id: string }).id);
     const body = (await context.request.json()) as { tag_id: number };
 

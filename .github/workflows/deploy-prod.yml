@@ -69,5 +69,8 @@ jobs:
       - name: Seed Merchant Patterns
         run: node scripts/seed-merchant-patterns.mjs remote --env production
 
+      - name: Sync Production Secrets
+        run: echo "${{ secrets.STATE_SECRET }}" | pnpm exec wrangler pages secret put STATE_SECRET --project-name jaw-finance
+
       - name: Deploy
         run: pnpm exec wrangler pages deploy dist --project-name jaw-finance --branch main --commit-dirty=true

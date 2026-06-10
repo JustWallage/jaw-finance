@@ -57,6 +57,8 @@ jobs:
             -e "s/PROD_DB_ID/${{ steps.create-db.outputs.db_id }}/g" \
             -e "s|https://staging.jaw-finance.pages.dev/mock-enable-banking|${BRANCH_URL}/mock-enable-banking|g" \
             -e "s|https://staging.jaw-finance.pages.dev/api/bank/callback|${BRANCH_URL}/api/bank/callback|g" \
+            -e "s|PREVIEW_STATE_SECRET|${{ secrets.STATE_SECRET }}|g" \
+            -e "s|PREVIEW_TEST_AUTH_TOKEN|${{ secrets.TEST_AUTH_TOKEN }}|g" \
             wrangler.toml.template > wrangler.toml
 
       - name: Run DB Migrations
@@ -77,6 +79,7 @@ jobs:
           BASE_URL: ${{ steps.env.outputs.branch_url }}
           CI: "true"
           DEBUG: "pw:api"
+          TEST_AUTH_TOKEN: ${{ secrets.TEST_AUTH_TOKEN }}
         run: pnpm exec playwright test --reporter=list
 
       - name: Upload Playwright Report

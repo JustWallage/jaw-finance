@@ -3,7 +3,7 @@ import { getUserEmail, type EBEnv } from "../../lib/enable-banking";
 export const onRequestDelete: PagesFunction<EBEnv> = async (context) => {
   const { env, request } = context;
   try {
-    const userEmail = getUserEmail(request, env.ENVIRONMENT);
+    const userEmail = getUserEmail(request, env);
     const body = (await request.json()) as { account_uid: string };
 
     if (!body.account_uid || typeof body.account_uid !== "string") {

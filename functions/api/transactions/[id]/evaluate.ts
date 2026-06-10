@@ -1,17 +1,19 @@
 import { getUserEmail, type EBEnv } from "../../../lib/enable-banking";
-import {
-  assignTagConsolidated,
-  fetchHistoricalTagFrequencies,
-} from "../../../lib/tag-utils";
-import type { DBTag, DBTransaction } from "../../../../db/types";
+import { isProduction } from "../../../lib/env";
+import { enforceRateLimit } from "../../../lib/rate-limit";
+import type { DBTransaction } from "../../../../db/types";
 import {
   isReservedAutoPath,
-  formatTagForPrompt,
-  filterSuggestedTags,
   buildSinglePrompt,
   SYSTEM_PROMPT,
-  MAX_NEW_TAGS,
 } from "../../../lib/ai-prompt-building";
+import { AI_MODEL } from "../../../lib/ai-model";
+import {
+  loadEvaluationContext,
+  loadTransactionContext,
+  applyEvaluation,
+  markEvaluated,
+} from "../../../lib/ai-evaluation";
 import {
   parseSingleEvalResponse,
   type ParsedEvalResponse,
@@ -32,7 +34,10 @@ function mockResponse(existing: string[]): ParsedEvalResponse {
 export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
   const { env } = context;
   try {
-    const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
+    const userEmail = getUserEmail(context.request, env);
+    const limited = await enforceRateLimit(env.DB, userEmail, "evaluate", 60, 3600);
+    if (limited) return limited;
+
     const txId = Number((context.params as { id: string }).id);
 
     let explanation: string | undefined;
@@ -55,127 +60,54 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
       return Response.json({ error: "Transaction not found" }, { status: 404 });
     }
 
-    const allTags = await env.DB.prepare(
-      "SELECT * FROM tags WHERE user_email = ?",
-    )
-      .bind(userEmail)
-      .all<DBTag>();
-
-    const existingTags = allTags.results.filter(
-      (t) =>
-        (t.status === "confirmed" || t.status === "unconfirmed") &&
-        !isReservedAutoPath(t.path),
-    );
-    const existing = existingTags.map((t) => t.path);
-    const existingFormatted = existingTags.map((t) =>
-      formatTagForPrompt(t.path, t.reasoning),
-    );
-    const rejected = allTags.results
-      .filter((t) => t.status === "rejected")
-      .map((t) => t.path);
-
-    const alreadyRows = await env.DB.prepare(
-      `SELECT t.path FROM tags t
-       JOIN transaction_tags tt ON tt.tag_id = t.id
-       WHERE tt.transaction_id = ? AND t.user_email = ?`,
-    )
-      .bind(txId, userEmail)
-      .all<{ path: string }>();
-    const alreadyAssigned = alreadyRows.results
-      .map((r) => r.path)
-      .filter((p) => !isReservedAutoPath(p));
-
-    const descriptionFrequencies = tx.remittance_info
-      ? await fetchHistoricalTagFrequencies(
-          env.DB,
-          "remittance_info",
-          tx.remittance_info,
-          txId,
-          userEmail,
-        )
-      : [];
-    const counterpartyFrequencies = tx.counterparty_name?.trim()
-      ? await fetchHistoricalTagFrequencies(
-          env.DB,
-          "counterparty_name",
-          tx.counterparty_name,
-          txId,
-          userEmail,
-        )
-      : null;
+    const ctx = await loadEvaluationContext(env.DB, userEmail);
+    const txCtx = await loadTransactionContext(env.DB, tx, txId, userEmail);
 
     const userMessage = buildSinglePrompt(
       tx,
-      alreadyAssigned,
-      existingFormatted,
-      rejected,
-      descriptionFrequencies,
-      counterpartyFrequencies,
+      txCtx.alreadyAssigned,
+      ctx.existingFormatted,
+      ctx.rejected,
+      txCtx.descriptionFrequencies,
+      txCtx.counterpartyFrequencies,
       explanation,
     );
 
     const useMock =
-      env.ENVIRONMENT !== "production" &&
+      !isProduction(env.ENVIRONMENT) &&
       context.request.headers.get("X-Test-Mock-AI") === "1";
 
     let parsed: ParsedEvalResponse;
     if (useMock) {
-      parsed = mockResponse(existing);
+      parsed = mockResponse(ctx.existing);
     } else {
       const messages = [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userMessage },
       ];
-      const aiResp = await env.AI.run(
-        "@cf/meta/llama-3.3-70b-instruct-fp8-fast" satisfies Parameters<
-          typeof env.AI.run
-        >[0],
-        { messages, max_tokens: 300 },
-      );
-      console.log(
-        `[evaluate] Input:\n${messages.map((m) => `${m.role}: ${m.content}`).join("\n\n")}\nAI raw:\n${JSON.stringify(aiResp)}`,
-      );
+      const aiResp = await env.AI.run(AI_MODEL, { messages, max_tokens: 300 });
       parsed = parseSingleEvalResponse(aiResp);
       if (parsed.tags.length === 0 && !parsed.reasoning) {
         console.error(
           `[evaluate] Failed to parse AI response. Raw:\n${JSON.stringify(aiResp)}`,
         );
         return Response.json(
-          { error: "AI returned invalid output", raw: JSON.stringify(aiResp) },
+          { error: "AI returned invalid output" },
           { status: 502 },
         );
       }
     }
 
-    const accepted = filterSuggestedTags(
-      parsed.tags,
-      new Set(rejected),
-      new Set(existing),
-      new Set(alreadyAssigned),
-      MAX_NEW_TAGS,
+    const assignedPaths = await applyEvaluation(
+      env.DB,
+      userEmail,
+      txId,
+      parsed,
+      ctx,
+      new Set(txCtx.alreadyAssigned),
     );
 
-    const existingSet = new Set(existing);
-    const assignedPaths: string[] = [];
-    for (const path of accepted) {
-      const isNew = !existingSet.has(path);
-      await assignTagConsolidated(
-        env.DB,
-        txId,
-        userEmail,
-        path,
-        isNew ? "llm" : "user",
-        isNew ? "unconfirmed" : "confirmed",
-        isNew ? parsed.reasoning : null,
-      );
-      assignedPaths.push(path);
-    }
-
-    await env.DB.prepare(
-      "UPDATE transactions SET ai_evaluated = CAST(strftime('%s', 'now') AS INTEGER) WHERE id = ? AND user_email = ?",
-    )
-      .bind(txId, userEmail)
-      .run();
+    await markEvaluated(env.DB, userEmail, [txId]);
 
     return Response.json({
       assigned: assignedPaths,
@@ -186,9 +118,6 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
     });
   } catch (err) {
     console.error("[evaluate] Error:", err);
-    return Response.json(
-      { error: err instanceof Error ? err.message : "Unknown error" },
-      { status: 500 },
-    );
+    return Response.json({ error: "Internal error" }, { status: 500 });
   }
 };

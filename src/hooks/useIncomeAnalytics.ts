@@ -1,9 +1,5 @@
 import { useEffect, useState } from "react";
-
-function authHeaders(): HeadersInit {
-  const email = import.meta.env.VITE_DEV_USER_EMAIL;
-  return email ? { "Cf-Access-Authenticated-User-Email": email } : {};
-}
+import { apiFetch } from "../lib/api";
 
 export interface MonthlyIncome {
   period: string;
@@ -50,12 +46,9 @@ export function useIncomeAnalytics(accountUid: string) {
       group_by: "month",
     });
 
-    fetch(`/api/transactions/analytics?${params}`, { headers: authHeaders() })
-      .then((res) =>
-        res.ok ? (res.json() as Promise<AnalyticsResponse>) : null,
-      )
+    apiFetch<AnalyticsResponse>(`/api/transactions/analytics?${params}`)
       .then((data) => {
-        if (!data?.by_month) return;
+        if (!data.by_month) return;
         const currentPeriod = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
         const current = data.by_month.find((m) => m.period === currentPeriod);
         setCurrentMonthIncome(current?.income ?? 0);

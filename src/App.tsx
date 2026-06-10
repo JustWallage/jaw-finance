@@ -6,7 +6,7 @@ import { BankConnectionProvider } from "./components/BankConnectionProvider";
 import PublicHomePage from "./pages/PublicHomePage";
 import HomePage from "./pages/HomePage";
 import ChatPage from "./pages/ChatPage";
-import TrendsPage from "./pages/TrendsPage";
+import TagsPage from "./pages/TagsPage";
 import SettingsPage from "./pages/SettingsPage";
 import TermsPage from "./pages/TermsPage";
 import PrivacyPage from "./pages/PrivacyPage";
@@ -32,7 +32,7 @@ export default function App() {
         >
           <Route index element={<HomePage />} />
           <Route path="chat" element={<ChatPage />} />
-          <Route path="trends" element={<TrendsPage />} />
+          <Route path="trends" element={<TagsPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Routes>

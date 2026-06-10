@@ -33,3 +33,12 @@ enable-banking/secrets/
 *.vars
 
 wrangler.toml.bak
+
+# AI-assistant tooling (private)
+.agents/
+skills-lock.json
+CLAUDE.local.md
+
+# Internal working documents (not for publication)
+docs/pre-public-audit.md
+docs/pre-public-audit-handoff.md

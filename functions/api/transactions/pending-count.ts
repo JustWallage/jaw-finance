@@ -3,7 +3,7 @@ import { getUserEmail, type EBEnv } from "../../lib/enable-banking";
 export const onRequestGet: PagesFunction<EBEnv> = async (context) => {
   const { env } = context;
   try {
-    const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
+    const userEmail = getUserEmail(context.request, env);
     const row = await env.DB.prepare(
       "SELECT COUNT(*) as count FROM transactions WHERE user_email = ? AND ai_evaluated = 0",
     )

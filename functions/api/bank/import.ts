@@ -70,7 +70,7 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
       );
     }
 
-    const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
+    const userEmail = getUserEmail(context.request, env);
     const connection = await env.DB.prepare(
       "SELECT account_uid FROM bank_connections WHERE account_uid = ? AND user_email = ? AND valid_until > datetime('now')",
     )
@@ -130,9 +130,7 @@ export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
       oldest_synced_date: updated?.oldest_synced_date ?? body.date_from,
     });
   } catch (err) {
-    return Response.json(
-      { error: err instanceof Error ? err.message : "Unknown error" },
-      { status: 500 },
-    );
+    console.error("[bank/import] Error:", err);
+    return Response.json({ error: "Import failed" }, { status: 500 });
   }
 };

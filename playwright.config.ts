@@ -5,7 +5,10 @@ const ciBaseUrl = process.env.BASE_URL;
 if (isCi && !ciBaseUrl) throw new Error("BASE_URL env must be set in CI");
 
 const extraHTTPHeaders: Record<string, string> = isCi
-  ? { "X-Test-User-Email": "test@jaw-finance.local" }
+  ? {
+      "X-Test-User-Email": "test@jaw-finance.local",
+      "X-Test-Auth": process.env.TEST_AUTH_TOKEN ?? "",
+    }
   : { "Cf-Access-Authenticated-User-Email": "test@jaw-finance.local" };
 
 export default defineConfig({

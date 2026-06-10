@@ -5,7 +5,7 @@ import { evaluateMerchantPatterns } from "../../lib/merchant-patterns";
 export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
   const { env } = context;
   try {
-    const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
+    const userEmail = getUserEmail(context.request, env);
     const connections = await env.DB.prepare(
       "SELECT account_uid FROM bank_connections WHERE user_email = ? AND valid_until > datetime('now')",
     )

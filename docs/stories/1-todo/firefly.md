@@ -1,1 +1,0 @@
-Look into https://getfirefly.io for banking integration.

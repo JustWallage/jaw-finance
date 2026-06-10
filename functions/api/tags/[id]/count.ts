@@ -3,7 +3,7 @@ import { getUserEmail, type EBEnv } from "../../../lib/enable-banking";
 export const onRequestGet: PagesFunction<EBEnv> = async (context) => {
   const { env } = context;
   try {
-    const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
+    const userEmail = getUserEmail(context.request, env);
     const tagId = (context.params as { id: string }).id;
 
     const tag = await env.DB.prepare(

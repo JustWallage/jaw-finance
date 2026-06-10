@@ -1,3 +1,7 @@
+# Prior art: existing services for AI-driven transaction querying
+
+This document surveys the existing apps and platforms we considered before deciding to build jaw-finance's AI tagging and natural-language querying in-house. It is a snapshot of the landscape at the time of research.
+
 In 2026, the landscape for AI-driven transaction querying has moved from experimental features to standard offerings. Several apps now use RAG (or similar "grounded" AI techniques) to let you chat with your historical data.
 
 Here are the primary apps and platforms currently using this technology:
@@ -36,5 +40,3 @@ If you want to build a RAG system for transaction querying, these are the "gold 
 | **Tech-Forward Budgeting** | **Copilot Money** | AI Intelligence Search |
 | **Business/SaaS Spend** | **CloudEagle.ai** | Predictive Spend Analysis |
 | **Building Your Own** | **Vectara / LangChain** | Managed RAG Pipelines |
-
-Are you looking for an app to help manage your own personal budget, or are you trying to find a tool for a business use case?

@@ -1,4 +1,5 @@
 import { ebFetch, type EBEnv } from "../../lib/enable-banking";
+import { verifyState } from "../../lib/oauth-state";
 import type { EBSessionResponse } from "../../../db/types";
 
 export const onRequestGet: PagesFunction<EBEnv> = async (context) => {
@@ -23,14 +24,25 @@ export const onRequestGet: PagesFunction<EBEnv> = async (context) => {
     );
   }
 
-  let userEmail: string;
-  try {
-    const state = JSON.parse(atob(stateParam)) as { email?: string };
-    if (!state.email) throw new Error("Missing email in state");
-    userEmail = state.email;
-  } catch {
+  const statePayload = env.STATE_SECRET
+    ? await verifyState(stateParam, env.STATE_SECRET)
+    : null;
+  if (!statePayload) {
     return Response.redirect(
       `${url.origin}/app?bank_error=${encodeURIComponent("Invalid state parameter")}`,
+      302,
+    );
+  }
+  const userEmail = statePayload.email;
+
+  // Defense in depth: when the callback navigation passes through Cloudflare
+  // Access, the authenticated identity must match the one the flow started with.
+  const accessEmail = context.request.headers.get(
+    "Cf-Access-Authenticated-User-Email",
+  );
+  if (accessEmail && accessEmail !== userEmail) {
+    return Response.redirect(
+      `${url.origin}/app?bank_error=${encodeURIComponent("Identity mismatch")}`,
       302,
     );
   }
@@ -42,9 +54,9 @@ export const onRequestGet: PagesFunction<EBEnv> = async (context) => {
     });
 
     if (!res.ok) {
-      const text = await res.text();
+      console.error(`[bank/callback] Session creation failed (${res.status}):`, await res.text());
       return Response.redirect(
-        `${url.origin}/app?bank_error=${encodeURIComponent(`Session creation failed: ${text}`)}`,
+        `${url.origin}/app?bank_error=${encodeURIComponent("Bank connection failed")}`,
         302,
       );
     }
@@ -75,9 +87,9 @@ export const onRequestGet: PagesFunction<EBEnv> = async (context) => {
 
     return Response.redirect(`${url.origin}/app?connected=true`, 302);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Unknown error";
+    console.error("[bank/callback] Error:", err);
     return Response.redirect(
-      `${url.origin}/app?bank_error=${encodeURIComponent(msg)}`,
+      `${url.origin}/app?bank_error=${encodeURIComponent("Bank connection failed")}`,
       302,
     );
   }

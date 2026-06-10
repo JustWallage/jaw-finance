@@ -16,7 +16,7 @@ export const onRequest: PagesFunction<EBEnv> = async (context) => {
   }
 
   try {
-    const userEmail = getUserEmail(context.request, context.env.ENVIRONMENT);
+    const userEmail = getUserEmail(context.request, context.env);
     const row = await context.env.DB.prepare(
       "SELECT 1 FROM user_consents WHERE user_email = ?",
     )

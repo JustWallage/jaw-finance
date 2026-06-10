@@ -4,7 +4,7 @@ import type { DBTag } from "../../../db/types";
 export const onRequestGet: PagesFunction<EBEnv> = async (context) => {
   const { env } = context;
   try {
-    const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
+    const userEmail = getUserEmail(context.request, env);
     const url = new URL(context.request.url);
     const status = url.searchParams.get("status");
 
@@ -34,7 +34,7 @@ export const onRequestGet: PagesFunction<EBEnv> = async (context) => {
 export const onRequestPost: PagesFunction<EBEnv> = async (context) => {
   const { env } = context;
   try {
-    const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
+    const userEmail = getUserEmail(context.request, env);
     const body = (await context.request.json()) as {
       name: string;
       path: string;

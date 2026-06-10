@@ -11,7 +11,7 @@ interface ASPSPData {
 export const onRequestGet: PagesFunction<EBEnv> = async (context) => {
   const { env } = context;
   try {
-    getUserEmail(context.request, env.ENVIRONMENT); // auth check
+    getUserEmail(context.request, env); // auth check
 
     const res = await ebFetch("/aspsps?psu_type=personal", env);
     if (!res.ok) {

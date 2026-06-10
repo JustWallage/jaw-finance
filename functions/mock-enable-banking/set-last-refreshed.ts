@@ -15,7 +15,7 @@ export const onRequestPost: PagesFunction<MockEnv> = async (context) => {
   }
 
   const { env } = context;
-  const userEmail = getUserEmail(context.request, env.ENVIRONMENT);
+  const userEmail = getUserEmail(context.request, env);
   const body = (await context.request.json()) as SetLastRefreshedBody;
 
   await env.DB.prepare(
