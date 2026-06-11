@@ -18,11 +18,11 @@ A personal finance dashboard that connects to a real bank via PSD2 Open Banking 
 
 **AI auto-tagging** — the LLM proposes tags with reasoning; the user confirms or rejects.
 
-<!-- VIDEO(owner): drag-drop docs/readme-images/ai-tagging.mp4 onto this line in the GitHub README editor, then delete this comment -->
+https://github.com/user-attachments/assets/fc4ec756-580f-4c2b-be89-2fddfa98f32f
 
 **Ask your finances** — two-pass natural-language chat answering a real question.
 
-<!-- VIDEO(owner): drag-drop docs/readme-images/ask-your-finances.mp4 onto this line in the GitHub README editor, then delete this comment -->
+https://github.com/user-attachments/assets/e6f130d6-7515-4ed9-a213-0ef5460a3b89
 
 **Explaining ambiguous transactions** — describe an unclear transaction in plain language and let the AI tag it from that explanation.
 
