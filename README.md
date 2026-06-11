@@ -12,13 +12,25 @@ A personal finance dashboard that connects to a real bank via PSD2 Open Banking 
 
 ## Screenshots
 
-<!-- TODO(owner): screenshot — dashboard chart card -->
+**Dashboard** — income/expense chart cards with live analytics.
 
-<!-- TODO(owner): screenshot or short GIF — AI auto-tag flow / transaction modal showing LLM reasoning (a GIF of this flow beats a static shot) -->
+![Dashboard](docs/readme-images/dashboard.png)
 
-<!-- TODO(owner): screenshot or short GIF — NL chat answering a real question -->
+**AI auto-tagging** — the LLM proposes tags with reasoning; the user confirms or rejects.
 
-<!-- TODO(owner): screenshot — tags page with the Unconfirmed / Confirmed split -->
+<!-- VIDEO(owner): drag-drop docs/readme-images/ai-tagging.mp4 onto this line in the GitHub README editor, then delete this comment -->
+
+**Ask your finances** — two-pass natural-language chat answering a real question.
+
+<!-- VIDEO(owner): drag-drop docs/readme-images/ask-your-finances.mp4 onto this line in the GitHub README editor, then delete this comment -->
+
+**Explaining ambiguous transactions** — describe an unclear transaction in plain language and let the AI tag it from that explanation.
+
+![Explaining an ambiguous transaction](docs/readme-images/ambiguous-transaction.png)
+
+**Settings** — merchant dictionary and batch AI evaluation controls.
+
+![Settings page](docs/readme-images/settings-page.png)
 
 ## Why this exists
 
