@@ -23,8 +23,8 @@
     "wrangler:login": "wrangler login"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Just Wallage",
+  "license": "SEE LICENSE IN LICENSE",
   "packageManager": "pnpm@10.21.0",
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260310.1",
