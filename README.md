@@ -34,7 +34,7 @@ https://github.com/user-attachments/assets/e6f130d6-7515-4ed9-a213-0ef5460a3b89
 
 ## Why this exists
 
-This is a real product, not a tutorial project: it connects to an actual bank through Enable Banking (PSD2 Open Banking), and its author uses it daily to track personal finances. It was built solo, end to end — frontend, API, database, AI integration, infrastructure, and CI/CD — to the standard an active company would hold itself to: everything automated, everything tested, nothing deployed by hand.
+This is a real product, not a tutorial project: it connects to an actual bank through Enable Banking (PSD2 Open Banking), and its author uses it to track personal finances. It was built solo, end to end — frontend, API, database, AI integration, infrastructure, and CI/CD — to the standard an active company would hold itself to: everything automated, everything tested, nothing deployed by hand.
 
 ## Feature highlights
 
@@ -88,7 +88,7 @@ Feature branches get the same treatment, opt-in: putting `run-pipeline` in the c
 Other practices worth noting:
 
 - **Expand-and-contract database migrations**, applied automatically in the pipeline before each deployment (22 migrations and counting — including a completed provider migration away from an earlier banking API).
-- **~2,200 lines of Playwright E2E across 10 specs** with shared custom fixtures. The tests assert real behavior against a live deployment — database state transitions, the AI pending-count decrementing by exactly one after an evaluation, leaf/ancestor tag consolidation — not smoke checks.
+- **Playwright E2E across 10 specs** with shared custom fixtures. The tests assert real behavior against a live deployment — database state transitions, the AI pending-count decrementing by exactly one after an evaluation, leaf/ancestor tag consolidation — not smoke checks.
 - **Deterministic by design**: the in-house bank mock and a mockable AI layer make the E2E suite reproducible in CI and locally, with both strictly disabled in production.
 
 ## Tech stack
